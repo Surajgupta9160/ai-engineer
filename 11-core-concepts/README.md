@@ -231,19 +231,14 @@ Solution: Show it thousands of examples of
           "instruction → ideal response" pairs
 
 Example training pairs:
-┌─────────────────────────────────────────────────────────────┐
-│ Input:    "Translate 'Hello' to French"                     │
-│ Output:   "Bonjour"                                        │
-├─────────────────────────────────────────────────────────────┤
-│ Input:    "Write a Python function to reverse a string"     │
-│ Output:   "def reverse_string(s): return s[::-1]"          │
-├─────────────────────────────────────────────────────────────┤
-│ Input:    "What is the capital of Australia?"               │
-│ Output:   "The capital of Australia is Canberra."          │
-└─────────────────────────────────────────────────────────────┘
 
-After SFT: Model knows how to follow instructions
-           But it might still be rude, biased, or harmful
+| Input | Output |
+|-------|--------|
+| "Translate 'Hello' to French" | "Bonjour" |
+| "Write a Python function to reverse a string" | `def reverse_string(s): return s[::-1]` |
+| "What is the capital of Australia?" | "The capital of Australia is Canberra." |
+
+After SFT: Model knows how to follow instructions, but it might still be rude, biased, or harmful.
 ```
 
 ### Phase 3: RLHF (Reinforcement Learning from Human Feedback)
@@ -309,83 +304,18 @@ Total for a frontier model: 6-12 months, $100M-$1B+
 
 Step by step, here's exactly what happens:
 
-```
-You type: "What is the speed of light?"
-Press Enter
-          │
-          ▼
-STEP 1: TOKENISATION
-  Your text is split into tokens
-  "What", " is", " the", " speed", " of", " light", "?"
-  = 7 tokens
-
-  Each token → integer ID from vocabulary
-  "What" → 2061
-  " is"  → 318
-  " the" → 262
-  ...
-
-          │
-          ▼
-STEP 2: EMBEDDING
-  Each integer ID → dense vector (list of numbers)
-  2061 → [0.21, -0.08, 0.64, 0.15, ..., 0.33]  (768 or more numbers)
-
-  These vectors contain "meaning" as numbers that the
-  model can process mathematically.
-
-          │
-          ▼
-STEP 3: FORWARD PASS THROUGH TRANSFORMER
-  The vectors pass through many "transformer layers"
-  Each layer applies "attention" (which tokens relate to which?)
-  and "feed-forward" operations (process the features)
-
-  In GPT-4: ~96 layers
-  In Llama 3.1 8B: 32 layers
-
-  This step is where the "thinking" happens.
-
-          │
-          ▼
-STEP 4: OUTPUT DISTRIBUTION
-  After all layers, the model outputs probabilities
-  for every possible next token (50,000+ tokens)
-
-  "The"     → 45%
-  "Light"   → 12%
-  "Its"     → 8%
-  "299"     → 6%
-  ...
-
-          │
-          ▼
-STEP 5: SAMPLING
-  Pick one token based on probabilities
-  (temperature=0: always pick highest; temperature=1: random sampling)
-
-  Let's say "The" is selected.
-
-          │
-          ▼
-STEP 6: REPEAT
-  Append "The" to context, run forward pass again
-  → " speed"
-  → " of"
-  → " light"
-  → " is"
-  → " approximately"
-  → " 299"
-  → ",792"
-  → ",458"
-  → " metres"
-  → " per"
-  → " second"
-  → "."
-  → [END TOKEN]
-
-Final output: "The speed of light is approximately
-               299,792,458 metres per second."
+```mermaid
+flowchart TD
+    Input["You type: 'What is the speed of light?'\nPress Enter"]
+    S1["STEP 1: TOKENISATION\nSplit into tokens: 'What', ' is', ' the', ' speed', ' of', ' light', '?'\n= 7 tokens → integer IDs"]
+    S2["STEP 2: EMBEDDING\nEach token ID → dense vector (768+ numbers)\nVectors encode 'meaning' mathematically"]
+    S3["STEP 3: FORWARD PASS THROUGH TRANSFORMER\nVectors pass through 32–96 transformer layers\nEach layer: attention + feed-forward\nThis is where 'thinking' happens"]
+    S4["STEP 4: OUTPUT DISTRIBUTION\nModel outputs probabilities for every next token\n'The' → 45%, 'Light' → 12%, '299' → 6% ..."]
+    S5["STEP 5: SAMPLING\nPick one token based on probabilities\n(temperature=0: always highest; =1: random)"]
+    S6["STEP 6: REPEAT\nAppend selected token to context\nRun forward pass again → generate next token\nContinue until END TOKEN"]
+    Out["Output: 'The speed of light is approximately\n299,792,458 metres per second.'"]
+    Input --> S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> Out
+    S6 -->|Loop back for each token| S3
 ```
 
 ### Why Inference is Much Cheaper Than Training
@@ -803,55 +733,24 @@ Solution: RAG
 
 ### RAG Step by Step
 
-```
-PHASE 1: INDEXING (Do this once, or when data changes)
-─────────────────────────────────────────────────────────
-
-Your Documents                                     Vector Database
-┌─────────────────┐                               ┌─────────────────┐
-│ policy.pdf      │   1. Extract text             │                 │
-│ product_guide   │ → 2. Split into chunks  ───►  │ [chunk1_vector] │
-│ .md             │   3. Create embeddings        │ [chunk2_vector] │
-│ faq.txt         │   4. Store vectors + text     │ [chunk3_vector] │
-└─────────────────┘                               │ ...             │
-                                                  └─────────────────┘
-
-
-PHASE 2: QUERYING (Do this for every user question)
-────────────────────────────────────────────────────
-
-User: "What's the return deadline?"
-         │
-         ▼
-1. Embed the question
-   "What's the return deadline?" → [0.45, -0.12, 0.71, ...]
-         │
-         ▼
-2. Search vector DB for similar chunks
-   Found: "Returns must be made within 30 days of purchase date."
-          "Items must be unused and in original packaging."
-         │
-         ▼
-3. Build the prompt:
-   ┌────────────────────────────────────────────────────┐
-   │ SYSTEM: You are a helpful assistant for AcmeCorp.  │
-   │         Answer only using the provided context.    │
-   │                                                    │
-   │ CONTEXT:                                          │
-   │ [Returns must be made within 30 days...]          │
-   │ [Items must be unused...]                         │
-   │                                                    │
-   │ USER: What's the return deadline?                  │
-   └────────────────────────────────────────────────────┘
-         │
-         ▼
-4. Send to LLM → Get answer
-   "You have 30 days from your purchase date to return
-    an item. The item must be unused and in its original
-    packaging."
-         │
-         ▼
-5. Return answer to user ✓
+```mermaid
+flowchart TD
+    subgraph Phase1["PHASE 1: INDEXING (once, or when data changes)"]
+        Docs["Your Documents\npolicy.pdf · product_guide.md · faq.txt"]
+        Steps["1. Extract text\n2. Split into chunks\n3. Create embeddings\n4. Store vectors + text"]
+        VDB["Vector Database\n[chunk1_vector]\n[chunk2_vector]\n[chunk3_vector]\n..."]
+        Docs --> Steps --> VDB
+    end
+    subgraph Phase2["PHASE 2: QUERYING (every user question)"]
+        Q["User: 'What's the return deadline?'"]
+        E["1. Embed the question\n→ [0.45, -0.12, 0.71, ...]"]
+        S["2. Search vector DB for similar chunks\nFound: 'Returns within 30 days...'\n'Items must be unused...'"]
+        P["3. Build prompt\nSYSTEM: Use context to answer\nCONTEXT: [retrieved chunks]\nUSER: What's the return deadline?"]
+        L["4. Send to LLM → Get answer\n'You have 30 days from purchase date...'"]
+        R["5. Return answer to user ✓"]
+        Q --> E --> S --> P --> L --> R
+    end
+    VDB -.->|Retrieved at query time| S
 ```
 
 ### Simple RAG Implementation
@@ -1103,33 +1002,13 @@ Agent with weather tool:
 
 ### The Agent Loop
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        AGENT LOOP                                │
-│                                                                 │
-│  User Goal: "Research Tesla's Q3 2025 earnings and             │
-│              write a 3-bullet summary"                          │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  ITERATION 1:                                           │   │
-│  │  THINK: I need to find Tesla's Q3 2025 earnings data    │   │
-│  │  ACT:   search_web("Tesla Q3 2025 earnings report")     │   │
-│  │  OBSERVE: Found: Revenue $25.2B, Net Income $2.17B,     │   │
-│  │           Deliveries 462,890 vehicles...                │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                         │                                       │
-│                         ▼                                       │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  ITERATION 2:                                           │   │
-│  │  THINK: I have the data. Now I'll write the summary.    │   │
-│  │  ACT:   [No tool needed — write directly]               │   │
-│  │  OUTPUT: • Revenue of $25.2B, up 8% YoY                 │   │
-│  │           • Net income $2.17B despite pricing pressure   │   │
-│  │           • 462,890 deliveries, record quarter           │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  DONE — Goal achieved after 2 iterations                       │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Goal["User Goal: 'Research Tesla Q3 2025 earnings and write a 3-bullet summary'"]
+    I1["ITERATION 1\nTHINK: I need to find Tesla Q3 2025 earnings\nACT: search_web('Tesla Q3 2025 earnings report')\nOBSERVE: Revenue $25.2B, Net Income $2.17B, 462K deliveries"]
+    I2["ITERATION 2\nTHINK: I have the data. Now I'll write the summary.\nACT: Write directly (no tool needed)\nOUTPUT: • Revenue $25.2B (+8% YoY)\n• Net income $2.17B\n• 462,890 deliveries — record quarter"]
+    Done["DONE — Goal achieved after 2 iterations"]
+    Goal --> I1 --> I2 --> Done
 ```
 
 ### A Simple Agent From Scratch
@@ -1302,52 +1181,28 @@ run_agent("What is the current time and what is 2 to the power of 10?")
 
 Now let's see how all these concepts work together in a real AI application:
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│              COMPLETE AI APPLICATION ARCHITECTURE                    │
-│                                                                     │
-│  USER: "What were our sales figures for Q3 2025?"                  │
-│           │                                                         │
-│           ▼                                                         │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │                    YOUR APPLICATION                          │  │
-│  │                                                              │  │
-│  │  1. SAFETY CHECK                                            │  │
-│  │     Is this a safe, appropriate question?                   │  │
-│  │     → Yes, proceed                                          │  │
-│  │                                                              │  │
-│  │  2. RETRIEVE CONTEXT (RAG)                                  │  │
-│  │     Embed question → Search vector DB                       │  │
-│  │     → Found: "Q3 2025 Sales Report.pdf (chunks 3,7,12)"    │  │
-│  │                                                              │  │
-│  │  3. BUILD PROMPT                                            │  │
-│  │     System: "You are a business analyst..."                 │  │
-│  │     Context: [Q3 report chunks]                             │  │
-│  │     User: "What were our sales figures for Q3 2025?"        │  │
-│  │                                                              │  │
-│  │  4. CALL LLM API                                            │  │
-│  │     Send to GPT-4o or Claude                                │  │
-│  │     → "Q3 2025 revenue was $12.4M, up 18% YoY..."          │  │
-│  │                                                              │  │
-│  │  5. OUTPUT VALIDATION                                       │  │
-│  │     Is the response factual and appropriate?                │  │
-│  │     → Yes, send to user                                     │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-│           │                                                         │
-│           ▼                                                         │
-│  USER SEES: "According to the Q3 2025 report, revenue was          │
-│              $12.4M, representing 18% year-over-year growth..."     │
-│                                                                     │
-│  ──────────────────────────────────────────────────────────────    │
-│                                                                     │
-│  BACKGROUND COMPONENTS:                                            │
-│                                                                     │
-│  Vector DB ──────────────────────────────── (stores embeddings)   │
-│  Embedding Model ────────────────────────── (creates embeddings)  │
-│  LLM API ────────────────────────────────── (generates response)  │
-│  Prompt Templates ───────────────────────── (consistent prompts)  │
-│  Logging/Monitoring ─────────────────────── (track quality/cost)  │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    U["USER: 'What were our sales figures for Q3 2025?'"]
+    S1["1. SAFETY CHECK\nIs this safe and appropriate?\n→ Yes, proceed"]
+    S2["2. RETRIEVE CONTEXT (RAG)\nEmbed question → Search vector DB\nFound: 'Q3 2025 Sales Report.pdf (chunks 3,7,12)'"]
+    S3["3. BUILD PROMPT\nSystem: 'You are a business analyst...'\nContext: [Q3 report chunks]\nUser: 'What were our sales figures?'"]
+    S4["4. CALL LLM API\nSend to GPT-4o or Claude\n→ 'Q3 2025 revenue was $12.4M, up 18% YoY...'"]
+    S5["5. OUTPUT VALIDATION\nIs the response factual and appropriate?\n→ Yes, send to user"]
+    OUT["USER SEES: 'According to the Q3 2025 report,\nrevenue was $12.4M (18% YoY growth)...'"]
+    U --> S1 --> S2 --> S3 --> S4 --> S5 --> OUT
+    subgraph BG["Background Components"]
+        VDB["Vector DB\n(stores embeddings)"]
+        EM["Embedding Model\n(creates embeddings)"]
+        LLM["LLM API\n(generates response)"]
+        PT["Prompt Templates\n(consistent prompts)"]
+        LOG["Logging/Monitoring\n(quality + cost)"]
+    end
+    S2 <--> VDB
+    S2 <--> EM
+    S4 <--> LLM
+    S3 --- PT
+    S5 --- LOG
 ```
 
 ### When to Use Each Concept

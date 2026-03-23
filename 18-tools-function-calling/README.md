@@ -37,63 +37,23 @@ structured way to request that the host application run code and return results.
 
 ## How Function Calling Works: The Full Flow
 
-```
-FUNCTION CALLING: STEP-BY-STEP ARCHITECTURE
-============================================================
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant A as Your Application
+    participant L as LLM API
 
-  USER              YOUR APPLICATION              LLM API
-   |                      |                          |
-   |  "Weather in Tokyo?" |                          |
-   |--------------------->|                          |
-   |                      |                          |
-   |                      |   STEP 1: SEND REQUEST   |
-   |                      |   ┌─────────────────┐   |
-   |                      |   │ user message    │   |
-   |                      |   │ tool definitions│   |
-   |                      |   └─────────────────┘   |
-   |                      |------------------------->|
-   |                      |                          |
-   |                      |   STEP 2: MODEL REASONS  |
-   |                      |   "I need real-time      |
-   |                      |    weather. I'll call    |
-   |                      |    get_weather(Tokyo)"   |
-   |                      |                          |
-   |                      |   STEP 3: RETURN TOOL    |
-   |                      |   CALL (not final answer)|
-   |                      |   ┌─────────────────┐   |
-   |                      |   │ tool_calls: [   │   |
-   |                      |   │  {name: "get_   │   |
-   |                      |   │   weather",     │   |
-   |                      |   │   args: {city:  │   |
-   |                      |   │   "Tokyo"}}]    │   |
-   |                      |   └─────────────────┘   |
-   |                      |<-------------------------|
-   |                      |                          |
-   |                      |   STEP 4: YOU EXECUTE    |
-   |                      |   get_weather("Tokyo")   |
-   |                      |   => {temp: 22, sky:     |
-   |                      |       "Sunny"}           |
-   |                      |                          |
-   |                      |   STEP 5: SEND RESULTS   |
-   |                      |   ┌─────────────────┐   |
-   |                      |   │ role: "tool"    │   |
-   |                      |   │ content: result │   |
-   |                      |   └─────────────────┘   |
-   |                      |------------------------->|
-   |                      |                          |
-   |                      |   STEP 6: FINAL ANSWER   |
-   |                      |<-------------------------|
-   |                      |                          |
-   | "It is 22°C and      |                          |
-   |  sunny in Tokyo!"    |                          |
-   |<---------------------|                          |
-
-CRITICAL INSIGHT:
-  The LLM never directly calls anything.
-  It produces structured JSON describing WHAT to call and WITH WHAT ARGS.
-  YOUR application does all the actual execution.
-  This means you have complete control over what actually runs.
+    U->>A: "Weather in Tokyo?"
+    A->>L: STEP 1: Send request<br/>(user message + tool definitions)
+    Note over L: STEP 2: Model reasons<br/>"I need real-time weather.<br/>I'll call get_weather(Tokyo)"
+    L->>A: STEP 3: Return tool call<br/>tool_calls: [{name:"get_weather",<br/>args:{city:"Tokyo"}}]
+    Note over A: STEP 4: YOU execute<br/>get_weather("Tokyo")<br/>=> {temp:22, sky:"Sunny"}
+    A->>L: STEP 5: Send results<br/>role:"tool", content: result
+    L->>A: STEP 6: Final answer
+    A->>U: "It is 22°C and sunny in Tokyo!"
 ```
+
+> Note: The LLM never directly calls anything. It produces structured JSON describing WHAT to call. Your application does all actual execution — giving you complete control over what runs.
 
 ---
 
@@ -1908,22 +1868,25 @@ FUNCTION CALLING — THE COMPLETE PICTURE
                               7. MODEL reads result, produces final answer
                               8. YOUR APP returns answer to USER
 
-  FLOW DIAGRAM:
-  ┌──────────┐      ┌────────────┐      ┌────────────┐
-  │  USER    │─────>│  YOUR APP  │─────>│  LLM API   │
-  │          │      │            │<─────│(gpt-4o etc)│
-  │          │      │  Executes  │      └────────────┘
-  │          │      │  tools     │           ^
-  │          │<─────│  locally   │──────────>│
-  └──────────┘      └────────────┘   (sends tool results back)
+```mermaid
+sequenceDiagram
+    participant U as USER
+    participant A as YOUR APP
+    participant L as LLM API
 
-  KEY PRINCIPLES:
-  ┌────────────────────────────────────────────────────────┐
-  │ 1. The LLM is the BRAIN — decides what to call         │
-  │ 2. YOUR CODE is the HANDS — actually runs functions    │
-  │ 3. Always validate args before executing               │
-  │ 4. Always set max_iterations to prevent loops          │
-  │ 5. Log every tool execution for debugging              │
-  │ 6. High-risk tools need confirmation gates             │
-  └────────────────────────────────────────────────────────┘
+    U->>A: Request
+    A->>L: Messages + tool definitions
+    L->>A: tool_call JSON (what to execute)
+    Note over A: Executes tools locally
+    A->>L: Tool results
+    L->>A: Final answer
+    A->>U: Response
 ```
+
+**Key Principles:**
+1. The LLM is the BRAIN — decides what to call
+2. YOUR CODE is the HANDS — actually runs functions
+3. Always validate args before executing
+4. Always set max_iterations to prevent loops
+5. Log every tool execution for debugging
+6. High-risk tools need confirmation gates

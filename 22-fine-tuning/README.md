@@ -41,33 +41,23 @@ Result: Model "knows" your preferred style without being told each time.
 
 ## 2. When to Fine-Tune
 
-```
-DECISION FLOWCHART:
-───────────────────
-
-Can prompting solve the problem?
-  YES → Use prompting (cheapest, fastest, most flexible)
-  NO  → Continue
-
-Can RAG solve the problem (private/recent data)?
-  YES → Use RAG (no training needed, data stays fresh)
-  NO  → Continue
-
-Is the problem one of these?
-  □ Need consistent tone/style across ALL responses
-  □ Domain-specific vocabulary or abbreviations
-  □ Want to reduce prompt length (cost savings at scale)
-  □ Need behavior that prompting can't achieve
-  □ Privacy concern (don't want examples in every prompt)
-  YES → Fine-tune!
-  NO  → Reconsider if fine-tuning is really needed
-
-FINE-TUNING IS GOOD FOR:            FINE-TUNING IS NOT FOR:
-✓ Custom response style/format       ✗ Adding factual knowledge (use RAG)
-✓ Domain jargon/terminology          ✗ One-time tasks
-✓ Reducing prompt length             ✗ Tasks that change frequently
-✓ Brand voice consistency            ✗ Real-time or dynamic information
-✓ Specialised task performance       ✗ When prompting already works
+```mermaid
+flowchart TD
+    Start["Problem to solve"]
+    Q1{"Can prompting\nsolve it?"}
+    Q2{"Can RAG solve it?\n(private/recent data)"}
+    Q3{"Is it about:\nConsistent style?\nDomain vocabulary?\nPrompt cost reduction?\nPrivacy concern?"}
+    P["Use Prompting\nCheapest, fastest, most flexible"]
+    R["Use RAG\nNo training, data stays fresh"]
+    FT["Fine-tune!"]
+    RC["Reconsider if fine-tuning\nis really needed"]
+    Start --> Q1
+    Q1 -->|YES| P
+    Q1 -->|NO| Q2
+    Q2 -->|YES| R
+    Q2 -->|NO| Q3
+    Q3 -->|YES| FT
+    Q3 -->|NO| RC
 ```
 
 ---
@@ -85,32 +75,23 @@ Use case: Almost never for AI engineers (done by model providers)
 
 ### LoRA (Low-Rank Adaptation)
 
+```mermaid
+flowchart LR
+    subgraph LoRA["LoRA: Low-Rank Adaptation"]
+        W["Original weight matrix W\n(large, FROZEN — not updated)"]
+        A["Matrix A\nd × r (tiny, trainable)"]
+        B["Matrix B\nr × k (tiny, trainable)"]
+        W_new["W_new = W_frozen + α × (A × B)"]
+        W --> W_new
+        A --> W_new
+        B --> W_new
+    end
 ```
-INTUITION:
-  Instead of updating all 7 billion weights,
-  add tiny "adapter" layers and only update those.
 
-  Original weight matrix W (large, frozen):
-  ┌─────────────────────────────┐
-  │ 0.21  -0.08   0.64   0.15  │  ← FROZEN (not updated)
-  │ 0.55   0.33  -0.22   0.89  │
-  │ ...                         │
-  └─────────────────────────────┘
-                +
-  LoRA adapters (tiny, trainable):
-  ┌──────┐   ┌──────────────────────┐
-  │  A   │ × │         B            │  ← Only A and B are trained
-  │ d×r  │   │         r×k          │
-  └──────┘   └──────────────────────┘
-  (d=in, k=out, r=rank — much smaller!)
-
-  W_new = W_frozen + scaling × (A × B)
-
-NUMBERS (Llama 3.1 8B):
-  Full fine-tuning: 8,000,000,000 trainable params
-  LoRA (rank=16):      41,943,040 trainable params (0.5%!)
-  Memory saved: ~95% less GPU RAM needed
-```
+**Numbers (Llama 3.1 8B):**
+- Full fine-tuning: 8,000,000,000 trainable params
+- LoRA (rank=16): 41,943,040 trainable params — only **0.5%**
+- Memory saved: ~95% less GPU RAM needed
 
 ### Quantization Basics (Required for QLoRA)
 
@@ -690,12 +671,61 @@ MITIGATION:
 DPO can suffer from overfitting to the preference dataset. IPO is a regularized alternative.
 
 ```
-DPO PROBLEM — distributional shift:
+DPO FAILURE MODES — three distinct problems:
+
+1. PROBABILITY COLLAPSE (distributional shift):
   DPO objective: maximize log P(chosen) - log P(rejected)
   If the chosen/rejected margin in the data is too large,
   DPO can drive the probability of the rejected response to
   near-zero, causing overly deterministic outputs.
   This degrades diversity and off-distribution generalization.
+
+2. LENGTH BIAS:
+
+```mermaid
+flowchart TD
+    subgraph EASY["Case 1 — Short correct answer (works fine)"]
+        direction LR
+        CH1["✅ Chosen: 'The capital of France is Paris.'\n7 tokens  |  log P ≈ -0.74"]
+        RJ1["❌ Rejected: 'I don't know.'\n4 tokens  |  log P ≈ -4.82"]
+        CH1 & RJ1 --> LOSS1["DPO loss = -0.74 − (−4.82) = +4.08\n✅ Positive → correct gradient"]
+    end
+
+    subgraph HARD["Case 2 — Long correct answer (length bias kicks in)"]
+        direction LR
+        CH2["✅ Chosen: 'Paris is the capital because historically...'\n50 tokens  |  log P ≈ -37"]
+        RJ2["❌ Rejected: 'I don't know.'\n4 tokens  |  log P ≈ -4.82"]
+        CH2 & RJ2 --> LOSS2["DPO loss = -37 − (−4.82) = -32\n⚠️ LARGE NEGATIVE → gradient says SHORTEN"]
+    end
+
+    LOSS2 --> CONSEQUENCE["Model learns to prefer SHORT responses\nregardless of content quality"]
+
+    subgraph SIMPO["Fix — SimPO: normalize by length first"]
+        direction LR
+        NL["log P_norm = (1/len) × Σ log p(token)\n50-token correct answer and 7-token correct answer\nnow score equally per-token → bias removed ✅"]
+    end
+
+    CONSEQUENCE --> SIMPO
+```
+
+  DPO uses log-likelihood SUM over tokens: log P(response) = Σ_t log p(t_i)
+  Longer responses have more terms in the sum → naturally lower log-likelihood.
+  Result: DPO implicitly penalizes longer responses MORE than shorter ones,
+  causing the model to prefer shorter responses even when they are less correct.
+
+  Mechanistically:
+    log P(short rejected, 20 tokens)  ≈  -30   (small penalty)
+    log P(long chosen,   100 tokens)  ≈  -150  (large penalty due to length)
+    DPO loss = log P(chosen) - log P(rejected) = -150 - (-30) = -120
+    → Huge negative gap → gradient pushes to shorten responses
+
+  Fix — length-normalize the log-likelihood:
+    Use log P(response) / len(response) instead of the raw sum.
+    SimPO (Simple Preference Optimization, 2024) makes this the default.
+
+3. LABEL NOISE SENSITIVITY:
+  Without a reward model providing averaging, noisy annotation directly
+  corrupts training signal. IPO's soft target regularization mitigates this.
 
 IPO SOLUTION:
   Adds a regularization term that penalizes being too confident:
@@ -709,23 +739,17 @@ IPO SOLUTION:
     - Better off-distribution generalization
     - Preferred when training data has noisy preference labels
 
-DPO vs IPO vs RLHF comparison:
-┌───────────────┬──────────────┬──────────────┬──────────────────┐
-│ Method        │ Reward model │ Stability    │ Best for         │
-├───────────────┼──────────────┼──────────────┼──────────────────┤
-│ RLHF (PPO)    │ Required     │ Low          │ Large teams,     │
-│               │              │ (PPO tuning) │ high-quality RM  │
-├───────────────┼──────────────┼──────────────┼──────────────────┤
-│ DPO           │ Not required │ Medium       │ Most use cases,  │
-│               │              │              │ 10K-100K pairs   │
-├───────────────┼──────────────┼──────────────┼──────────────────┤
-│ IPO           │ Not required │ High         │ Noisy data,      │
-│               │              │              │ diversity matters│
-├───────────────┼──────────────┼──────────────┼──────────────────┤
-│ RLAIF         │ AI-generated │ Medium       │ Large scale,     │
-│               │              │              │ low annotation $ │
-└───────────────┴──────────────┴──────────────┴──────────────────┘
 ```
+
+DPO vs IPO vs RLHF comparison:
+
+| Method | Reward model | Stability | Best for |
+|--------|-------------|-----------|----------|
+| RLHF (PPO) | Required | Low (PPO tuning) | Large teams, high-quality RM |
+| DPO | Not required | Medium | Most use cases, 10K-100K pairs |
+| IPO | Not required | High | Noisy data, diversity matters |
+| SimPO | Not required | High | Length-sensitive tasks; avoids DPO length bias |
+| RLAIF | AI-generated | Medium | Large scale, low annotation cost |
 
 ---
 
@@ -913,17 +937,17 @@ METHOD 4: IA3 (Infused Adapter by Inhibiting and Amplifying Inner Activations)
   Disadvantages:
     ✗ Lower capacity than LoRA — may not capture complex task shifts
 
-CHOOSING PEFT METHOD:
-┌──────────────────┬─────────────────┬───────────────────┬──────────────────┐
-│ Method           │ Params (7B base)│ Quality           │ Best for         │
-├──────────────────┼─────────────────┼───────────────────┼──────────────────┤
-│ LoRA (r=16)      │ ~42M (0.5%)     │ High              │ General fine-tune│
-│ Prefix Tuning    │ ~5M (0.07%)     │ Medium            │ Multi-task server│
-│ Prompt Tuning    │ ~0.1M (0.001%)  │ Low-Medium        │ Classification   │
-│ IA3              │ ~0.7M (0.01%)   │ Medium            │ Few-shot adapt   │
-│ Full fine-tune   │ 7000M (100%)    │ Highest           │ Never (OOM)      │
-└──────────────────┴─────────────────┴───────────────────┴──────────────────┘
 ```
+
+**Choosing a PEFT method:**
+
+| Method | Params (7B base) | Quality | Best for |
+|--------|-----------------|---------|----------|
+| LoRA (r=16) | ~42M (0.5%) | High | General fine-tuning |
+| Prefix Tuning | ~5M (0.07%) | Medium | Multi-task serving |
+| Prompt Tuning | ~0.1M (0.001%) | Low-Medium | Classification |
+| IA3 | ~0.7M (0.01%) | Medium | Few-shot adaptation |
+| Full fine-tune | 7000M (100%) | Highest | Rarely (requires huge GPU) |
 
 ---
 *Next: [24 — LLMOps](../24-llmops/README.md)*

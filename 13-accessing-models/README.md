@@ -4,27 +4,15 @@
 
 ## 1. Overview: Ways to Access LLMs
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    ACCESS METHOD COMPARISON                          │
-│                                                                     │
-│  METHOD          COST       PRIVACY    SETUP    QUALITY            │
-│  ─────────────────────────────────────────────────────────         │
-│  Cloud APIs      Pay/token  Medium     Easy     Best               │
-│  (OpenAI etc.)                                                      │
-│                                                                     │
-│  HuggingFace     Free tier  Medium     Medium   Variable           │
-│  Inference API                                                      │
-│                                                                     │
-│  Ollama          Free       Full       Easy     Good               │
-│  (local)                                                            │
-│                                                                     │
-│  LM Studio       Free       Full       Easy     Good               │
-│  (local GUI)                                                        │
-│                                                                     │
-│  Third-party     Pay/token  Medium     Easy     Good               │
-│  (Together, Groq)                                                   │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+block-beta
+    columns 5
+    H1["Method"]:1 H2["Cost"]:1 H3["Privacy"]:1 H4["Setup"]:1 H5["Quality"]:1
+    R1["Cloud APIs\n(OpenAI etc.)"]:1 R2["Pay/token"]:1 R3["Medium"]:1 R4["Easy"]:1 R5["Best"]:1
+    S1["HuggingFace\nInference API"]:1 S2["Free tier"]:1 S3["Medium"]:1 S4["Medium"]:1 S5["Variable"]:1
+    T1["Ollama\n(local)"]:1 T2["Free"]:1 T3["Full"]:1 T4["Easy"]:1 T5["Good"]:1
+    U1["LM Studio\n(local GUI)"]:1 U2["Free"]:1 U3["Full"]:1 U4["Easy"]:1 U5["Good"]:1
+    V1["Together/Groq\n(third-party)"]:1 V2["Pay/token"]:1 V3["Medium"]:1 V4["Easy"]:1 V5["Good"]:1
 ```
 
 ### Decision Guide

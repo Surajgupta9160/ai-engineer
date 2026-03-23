@@ -4,81 +4,55 @@
 
 ## 1. The Five Core Architecture Patterns
 
-```
-PATTERN 1: SIMPLE LLM CALL
-  User → API → LLM → Response
-  Use when: Single-turn Q&A, translation, summarisation
-  Complexity: Minimal
-
-PATTERN 2: CHATBOT (stateful conversation)
-  User → API → [history management] → LLM → Response
-                      ↑
-              Store history across turns
-  Use when: Multi-turn conversation
-  Complexity: Low
-
-PATTERN 3: RAG APPLICATION
-  User → API → [embed query] → [vector search] → [LLM + context] → Response
-  Use when: Answer from private/recent documents
-  Complexity: Medium
-
-PATTERN 4: AGENT APPLICATION
-  User → API → [Agent Loop] → Response
-                 ↓
-              Plan → Tool → Observe → Repeat
-  Use when: Multi-step tasks, real-world actions
-  Complexity: High
-
-PATTERN 5: PIPELINE (document processing)
-  Input → Step1(LLM) → Step2(code) → Step3(LLM) → Output
-  Use when: Document processing, data extraction, structured workflows
-  Complexity: Medium
+```mermaid
+flowchart TD
+    subgraph P1["PATTERN 1: Simple LLM Call (Minimal)"]
+        direction LR
+        U1[User] --> A1[API] --> L1[LLM] --> R1[Response]
+    end
+    subgraph P2["PATTERN 2: Chatbot — Stateful Conversation (Low)"]
+        direction LR
+        U2[User] --> A2[API] --> H2["History\nManagement"] --> L2[LLM] --> R2[Response]
+    end
+    subgraph P3["PATTERN 3: RAG Application (Medium)"]
+        direction LR
+        U3[User] --> A3[API] --> EQ["Embed Query"] --> VS["Vector Search"] --> LC["LLM + Context"] --> R3[Response]
+    end
+    subgraph P4["PATTERN 4: Agent Application (High)"]
+        direction LR
+        U4[User] --> A4[API] --> AG["Agent Loop\nPlan → Tool → Observe → Repeat"] --> R4[Response]
+    end
+    subgraph P5["PATTERN 5: Pipeline — Document Processing (Medium)"]
+        direction LR
+        IN[Input] --> S1["Step 1\n(LLM)"] --> S2["Step 2\n(code)"] --> S3["Step 3\n(LLM)"] --> OUT[Output]
+    end
 ```
 
 ---
 
 ## 2. Full-Stack Architecture Diagram
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    PRODUCTION AI APPLICATION STACK                    │
-│                                                                      │
-│  BROWSER/CLIENT                                                      │
-│  ┌─────────────────────────────────────────────────────────────────┐ │
-│  │  React/Next.js                                                   │ │
-│  │  • Chat UI with streaming (EventSource)                          │ │
-│  │  • File upload (for RAG)                                        │ │
-│  │  • Feedback buttons (👍/👎)                                      │ │
-│  │  • Error states and loading indicators                           │ │
-│  └───────────────────────────┬─────────────────────────────────────┘ │
-│                              │ HTTPS / WebSocket                      │
-│  API LAYER                   │                                       │
-│  ┌───────────────────────────▼─────────────────────────────────────┐ │
-│  │  FastAPI / Express                                               │ │
-│  │  • Authentication (JWT / API keys)                               │ │
-│  │  • Rate limiting (per user, per IP)                              │ │
-│  │  • Input validation                                              │ │
-│  │  • Streaming SSE endpoints                                       │ │
-│  └───────────┬───────────────────────────────────────────────────── │ │
-│              │                                                       │ │
-│  AI LAYER    │                                                       │ │
-│  ┌───────────▼──────────────────────────────────────────────────┐  │ │
-│  │  LLM Orchestration (LangChain / custom)                      │  │ │
-│  │  • Prompt management and templating                           │  │ │
-│  │  • RAG retrieval pipeline                                     │  │ │
-│  │  • Agent loop / tool execution                                │  │ │
-│  │  • Response streaming                                         │  │ │
-│  └────────┬──────────────────────────────────────────────────── │  │ │
-│           │                                                      │  │ │
-│  ┌────────▼──────┐  ┌─────────────┐  ┌──────────┐  ┌────────┐ │  │ │
-│  │   LLM APIs    │  │  Vector DB  │  │  Redis   │  │  SQL   │ │  │ │
-│  │ GPT-4o/Claude │  │  (Chroma/   │  │ (cache + │  │ (chat  │ │  │ │
-│  │               │  │   Pinecone) │  │  session)│  │ history│ │  │ │
-│  └───────────────┘  └─────────────┘  └──────────┘  └────────┘ │  │ │
-│                                                                  │  │ │
-│  OBSERVABILITY                                                   │  │ │
-│  LangSmith / Langfuse (tracing, feedback, metrics)              │  │ │
-└──────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Client["BROWSER / CLIENT"]
+        FE["React / Next.js\n• Chat UI with streaming\n• File upload (for RAG)\n• Feedback buttons\n• Error states"]
+    end
+    subgraph API["API LAYER"]
+        BE["FastAPI / Express\n• Authentication (JWT / API keys)\n• Rate limiting\n• Input validation\n• Streaming SSE endpoints"]
+    end
+    subgraph AI["AI LAYER"]
+        Orch["LLM Orchestration (LangChain / custom)\n• Prompt management\n• RAG retrieval pipeline\n• Agent loop / tool execution\n• Response streaming"]
+    end
+    subgraph Data["DATA LAYER"]
+        LLMapi["LLM APIs\nGPT-4o / Claude"]
+        VDB["Vector DB\nChroma / Pinecone"]
+        Redis["Redis\ncache + session"]
+        SQL["SQL\nchat history"]
+    end
+    OBS["OBSERVABILITY\nLangSmith / Langfuse\n(tracing, feedback, metrics)"]
+    FE -->|HTTPS / WebSocket| BE --> Orch
+    Orch --> LLMapi & VDB & Redis & SQL
+    Orch --> OBS
 ```
 
 ---

@@ -27,73 +27,42 @@ Before we talk about AI Engineering, let's be crystal clear about what AI actual
 
 Think of it like this:
 
-```
-Human brain learns by:
-  ┌─────────────────────────────────────────────────────┐
-  │  Experience → Pattern Recognition → Decision Making │
-  │  (sees 1000 cats) → (learns what a cat looks like)  │
-  └─────────────────────────────────────────────────────┘
-
-AI "brain" learns by:
-  ┌─────────────────────────────────────────────────────┐
-  │  Data → Statistical Patterns → Predictions/Output   │
-  │  (sees 1M cat images) → (learns pixel patterns)     │
-  └─────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Human["Human Brain Learns By"]
+        A[Experience] --> B[Pattern Recognition] --> C[Decision Making]
+        A2["(sees 1000 cats)"] --> B2["(learns what a cat looks like)"]
+    end
+    subgraph AI["AI Brain Learns By"]
+        D[Data] --> E[Statistical Patterns] --> F["Predictions / Output"]
+        D2["(sees 1M cat images)"] --> E2["(learns pixel patterns)"]
+    end
 ```
 
 ### A Brief History of AI (So You Understand Why Now is Special)
 
-```
-1950s ──► Rule-based AI
-          "If X then Y" — programmers wrote all the rules
-          Problem: World is too complex for manual rules
-
-1980s ──► Expert Systems
-          Ask experts, encode their knowledge as rules
-          Problem: Can't handle new situations, brittle
-
-1990s ──► Machine Learning (Classical)
-          Let algorithms find patterns in data
-          Examples: Decision trees, SVMs, spam filters
-          Problem: Need hand-crafted features
-
-2010s ──► Deep Learning
-          Neural networks learn features automatically
-          Breakthrough: ImageNet (2012) — computers beat humans at image recognition
-
-2017 ──► Transformer Architecture
-          "Attention Is All You Need" paper
-          Enabled modern Large Language Models
-
-2020 ──► GPT-3, Large Language Models (LLMs)
-          175 billion parameters
-          Surprisingly good at language tasks
-
-2022 ──► ChatGPT launches
-          100M users in 60 days (fastest ever)
-          World realises AI is now practical
-
-2023-25 ──► AI Engineer role explodes
-           Every company needs someone to BUILD with AI
-           You are here ────────────────────────────► 📍
+```mermaid
+flowchart TD
+    A["1950s: Rule-based AI\n'If X then Y' — programmers wrote all the rules\nProblem: World is too complex for manual rules"]
+    B["1980s: Expert Systems\nAsk experts, encode their knowledge as rules\nProblem: Can't handle new situations, brittle"]
+    C["1990s: Machine Learning (Classical)\nAlgorithms find patterns in data\nExamples: Decision trees, SVMs, spam filters\nProblem: Need hand-crafted features"]
+    D["2010s: Deep Learning\nNeural networks learn features automatically\nBreakthrough: ImageNet 2012"]
+    E["2017: Transformer Architecture\n'Attention Is All You Need'\nEnabled modern LLMs"]
+    F["2020: GPT-3 — 175B parameters\nSurprisingly good at language tasks"]
+    G["2022: ChatGPT launches\n100M users in 60 days (fastest ever)"]
+    H["2023–25: AI Engineer role explodes\nEvery company needs someone to BUILD with AI"]
+    A --> B --> C --> D --> E --> F --> G --> H
 ```
 
 ### What Makes Modern AI Different
 
 The key breakthrough is **scale**. Modern AI models are trained on essentially the entire internet — books, code, articles, conversations. This gives them surprisingly broad knowledge and capability.
 
-```
-Traditional Software:          Modern AI (LLM):
-┌──────────────────────┐       ┌──────────────────────┐
-│  IF weather = rainy  │       │  Trained on billions │
-│    THEN take umbrella│       │  of text examples    │
-│  ELSE IF weather=sun │       │  ────────────────────│
-│    THEN wear sunblock│       │  Can answer anything │
-│  ELSE ...            │       │  in natural language │
-│  (thousands of rules)│       │  (no explicit rules) │
-└──────────────────────┘       └──────────────────────┘
-Brittle, limited               Flexible, generalised
-Programmer writes every rule   Model learns from data
+```mermaid
+block-beta
+    columns 2
+    A["Traditional Software\n───────────────────\nIF weather = rainy\n  THEN take umbrella\nELSE IF weather = sun\n  THEN wear sunblock\nELSE ...\n(thousands of rules)\n\nBrittle, limited\nProgrammer writes every rule"]:1
+    B["Modern AI (LLM)\n───────────────────\nTrained on billions\nof text examples\n\nCan answer anything\nin natural language\n(no explicit rules)\n\nFlexible, generalised\nModel learns from data"]:1
 ```
 
 ---
@@ -224,27 +193,15 @@ Data Scientist Toolkit:
 
 ### Overlap Areas
 
-```
-                    ┌─────────────────────────────────────────┐
-                    │                                         │
-       ┌────────────┤          AI ENGINEER                   ├─────────────┐
-       │            │                                         │             │
-       │  ML        │  • LLM fine-tuning                     │   Software  │
-       │ Engineer   │  • Embedding models                     │  Engineering│
-       │            │  • Model evaluation                     │             │
-       │            │                                         │             │
-       └────────────┤                                         ├─────────────┘
-                    │                                         │
-                    └─────────────────────────────────────────┘
-                              ▲
-                              │ Also overlaps with
-                              │
-                    ┌─────────────────────┐
-                    │    Data Scientist    │
-                    │  • A/B testing       │
-                    │  • Metrics design    │
-                    │  • Data analysis     │
-                    └─────────────────────┘
+```mermaid
+flowchart TD
+    AE["AI ENGINEER\n• LLM fine-tuning\n• Embedding models\n• Model evaluation"]
+    ML["ML Engineer"]
+    SE["Software Engineering"]
+    DS["Data Scientist\n• A/B testing\n• Metrics design\n• Data analysis"]
+    ML --- AE
+    AE --- SE
+    DS -.->|Also overlaps with| AE
 ```
 
 ---
@@ -253,56 +210,22 @@ Data Scientist Toolkit:
 
 Think of building software like building a house. There are different layers:
 
+```mermaid
+flowchart TD
+    L5["LAYER 5: USER-FACING APPLICATION\nWeb app, mobile app, CLI, Slack bot, VS Code plugin\nWhat end users see and interact with"]
+    L4["LAYER 4: AI ORCHESTRATION ← AI ENGINEER\nLangChain, LlamaIndex, custom pipelines\nConnects prompts → retrieval → models → output"]
+    L3["LAYER 3: AI MODELS / APIs ← AI ENGINEER\nGPT-4o, Claude 3.5, Gemini 1.5, Llama 3.1\nCalled via REST APIs or loaded locally"]
+    L2["LAYER 2: DATA & KNOWLEDGE ← AI ENGINEER\nVector databases, document stores, knowledge bases\nYour private data that feeds the AI"]
+    L1["LAYER 1: MODEL TRAINING ← ML ENGINEER\nTraining on trillions of tokens, fine-tuning\nDone by OpenAI, Anthropic, Google, Meta"]
+    L0["LAYER 0: COMPUTE INFRASTRUCTURE ← INFRA ENG\nGPUs, TPUs, data centres, CUDA optimisation\nDone by Cloud providers, hardware companies"]
+    L5 --> L4 --> L3 --> L2 --> L1 --> L0
+    style L4 fill:#d4edda
+    style L3 fill:#d4edda
+    style L2 fill:#d4edda
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    THE AI APPLICATION STACK                           │
-│                                                                      │
-│  LAYER 5: USER-FACING APPLICATION                                    │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  Web app, mobile app, CLI, Slack bot, VS Code plugin...       │   │
-│  │  What end users actually see and interact with                │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                              ▲                                       │
-│                              │                                       │
-│  LAYER 4: AI ORCHESTRATION                          ← AI ENGINEER   │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  LangChain, LlamaIndex, custom pipelines                      │   │
-│  │  Connects prompts → retrieval → models → output processing    │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                              ▲                                       │
-│                              │                                       │
-│  LAYER 3: AI MODELS / APIs                          ← AI ENGINEER   │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  GPT-4o, Claude 3.5, Gemini 1.5, Llama 3.1, Mistral...      │   │
-│  │  Called via REST APIs or loaded locally                       │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                              ▲                                       │
-│                              │                                       │
-│  LAYER 2: DATA & KNOWLEDGE                          ← AI ENGINEER   │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  Vector databases, document stores, knowledge bases           │   │
-│  │  Your private data that feeds the AI                          │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                              ▲                                       │
-│                              │                                       │
-│  LAYER 1: MODEL TRAINING                            ← ML ENGINEER   │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  Training on trillions of tokens, fine-tuning                 │   │
-│  │  Done by: OpenAI, Anthropic, Google, Meta (not you!)          │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                              ▲                                       │
-│                              │                                       │
-│  LAYER 0: COMPUTE INFRASTRUCTURE                    ← INFRA ENG    │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  GPUs, TPUs, data centres, CUDA optimisation                  │   │
-│  │  Done by: Cloud providers, specialised hardware companies     │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-└──────────────────────────────────────────────────────────────────────┘
 
 As an AI Engineer, you work primarily with Layers 2, 3, and 4.
 You benefit from Layers 0 and 1 but don't build them.
-```
 
 ---
 
@@ -447,15 +370,15 @@ Production checklist for AI apps:
 ### The Shift in Product Development
 
 Traditional product development:
-```
-IDEA → DESIGN → BUILD (months) → TEST → LAUNCH → ITERATE (months)
-       ↑ Each step requires skilled humans doing manual work
+```mermaid
+flowchart LR
+    A[IDEA] --> B[DESIGN] --> C["BUILD\n(months)"] --> D[TEST] --> E[LAUNCH] --> F["ITERATE\n(months)"]
 ```
 
 AI-augmented development:
-```
-IDEA → PROTOTYPE with AI (days) → TEST → ITERATE (days) → LAUNCH
-       ↑ AI handles content generation, code, analysis, routing
+```mermaid
+flowchart LR
+    A[IDEA] --> B["PROTOTYPE with AI\n(days)"] --> C[TEST] --> D["ITERATE\n(days)"] --> E[LAUNCH]
 ```
 
 ### Concrete Examples of AI in Products
@@ -494,23 +417,16 @@ AI-powered personalisation    → Launched in 2 weeks
 
 ### The Flywheel Effect
 
+```mermaid
+flowchart TD
+    A["Better AI capabilities"] --> B["More developers using AI"]
+    B --> C["More products using AI"]
+    C --> D["More revenue for AI companies"]
+    D --> E["Investment in better AI capabilities"]
+    E --> A
 ```
-Better AI capabilities
-        │
-        ▼
-More developers using AI
-        │
-        ▼
-More products using AI
-        │
-        ▼
-More revenue for AI companies
-        │
-        ▼
-Investment in better AI capabilities ──► (loop back to top)
 
-This is why AI moves so fast — we're in a massive flywheel.
-```
+> Note: This flywheel is why AI moves so fast — each loop accelerates the next.
 
 ---
 
@@ -616,39 +532,14 @@ Because AI is NOT AGI, as an AI engineer you must:
 
 Think of learning AI Engineering like a skill tree in a video game:
 
-```
-LEVEL 1: FOUNDATIONS (Start here)
-  ├── Python programming (intermediate level)
-  ├── APIs and HTTP/JSON
-  ├── Basic understanding of ML concepts
-  └── Familiarity with cloud platforms
-
-LEVEL 2: CORE AI SKILLS (Main path)
-  ├── Calling LLM APIs (OpenAI, Anthropic, Google)
-  ├── Prompt engineering (this is a real skill!)
-  ├── Building basic chatbots and Q&A systems
-  └── Understanding tokens, context, temperature
-
-LEVEL 3: INTERMEDIATE AI SKILLS (Unlock after Level 2)
-  ├── RAG (Retrieval-Augmented Generation)
-  ├── Vector databases (Pinecone, Chroma)
-  ├── Embeddings and semantic search
-  ├── LangChain / LlamaIndex frameworks
-  └── Basic agent systems
-
-LEVEL 4: ADVANCED AI SKILLS (Unlock after Level 3)
-  ├── Multi-agent architectures
-  ├── Fine-tuning models (LoRA, QLoRA)
-  ├── LLMOps (monitoring, evaluation, A/B testing)
-  ├── Multimodal AI (images, audio, video)
-  └── Model Context Protocol (MCP)
-
-LEVEL 5: EXPERT (Unlock after Level 4)
-  ├── Custom training pipelines
-  ├── Advanced evaluation frameworks
-  ├── AI safety and alignment
-  ├── Research and novel architectures
-  └── Building AI platforms and infrastructure
+```mermaid
+flowchart TD
+    L1["LEVEL 1: FOUNDATIONS\nPython · APIs/HTTP/JSON\nBasic ML concepts · Cloud platforms"]
+    L2["LEVEL 2: CORE AI SKILLS\nLLM APIs · Prompt engineering\nChatbots & Q&A · Tokens/context/temperature"]
+    L3["LEVEL 3: INTERMEDIATE\nRAG · Vector databases\nEmbeddings · LangChain/LlamaIndex · Agents"]
+    L4["LEVEL 4: ADVANCED\nMulti-agent architectures · Fine-tuning\nLLMOps · Multimodal AI · MCP"]
+    L5["LEVEL 5: EXPERT\nCustom training pipelines\nAI safety · Novel architectures · AI platforms"]
+    L1 --> L2 --> L3 --> L4 --> L5
 ```
 
 ### Technical Skills Deep Dive
@@ -733,62 +624,54 @@ const response = await fetch('/api/chat', {
 
 ### The Major Players (2025)
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                      AI ECOSYSTEM MAP                                 │
-│                                                                      │
-│  FRONTIER MODEL LABS (build the best models)                        │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐                │
-│  │   OpenAI     │ │  Anthropic   │ │   Google     │                │
-│  │  GPT-4o, o1  │ │  Claude 3.5  │ │  Gemini 1.5  │                │
-│  └──────────────┘ └──────────────┘ └──────────────┘                │
-│                                                                      │
-│  OPEN SOURCE LABS (free model weights)                              │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐                │
-│  │     Meta     │ │   Mistral    │ │  DeepSeek    │                │
-│  │  Llama 3.1   │ │  Mixtral     │ │  DeepSeek-R1 │                │
-│  └──────────────┘ └──────────────┘ └──────────────┘                │
-│                                                                      │
-│  INFRASTRUCTURE (run models cheaply)                                │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐                │
-│  │ Hugging Face │ │    Groq      │ │  Together AI │                │
-│  │  Hub, Spaces │ │  Ultra-fast  │ │  Open models │                │
-│  └──────────────┘ └──────────────┘ └──────────────┘                │
-│                                                                      │
-│  DEVELOPER TOOLS (what AI engineers use)                            │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐                │
-│  │  LangChain   │ │  LlamaIndex  │ │   Haystack   │                │
-│  │  Orchestrate │ │  RAG focused │ │  Pipelines   │                │
-│  └──────────────┘ └──────────────┘ └──────────────┘                │
-│                                                                      │
-│  VECTOR DATABASES (store embeddings)                                │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐                │
-│  │   Pinecone   │ │    Chroma    │ │    Qdrant    │                │
-│  │  Cloud-first │ │  Local-first │ │  Self-hosted │                │
-│  └──────────────┘ └──────────────┘ └──────────────┘                │
-│                                                                      │
-│  OBSERVABILITY (monitor AI apps)                                    │
-│  ┌──────────────┐ ┌──────────────┐                                 │
-│  │  LangSmith   │ │  Langfuse    │                                 │
-│  │  (LangChain) │ │  (OSS)       │                                 │
-│  └──────────────┘ └──────────────┘                                 │
-└──────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Frontier["Frontier Model Labs (build the best models)"]
+        F1["OpenAI\nGPT-4o, o1"]
+        F2["Anthropic\nClaude 3.5"]
+        F3["Google\nGemini 1.5"]
+    end
+    subgraph OSS["Open Source Labs (free model weights)"]
+        O1["Meta\nLlama 3.1"]
+        O2["Mistral\nMixtral"]
+        O3["DeepSeek\nDeepSeek-R1"]
+    end
+    subgraph Infra["Infrastructure (run models cheaply)"]
+        I1["Hugging Face\nHub, Spaces"]
+        I2["Groq\nUltra-fast"]
+        I3["Together AI\nOpen models"]
+    end
+    subgraph DevTools["Developer Tools (what AI engineers use)"]
+        D1["LangChain\nOrchestrate"]
+        D2["LlamaIndex\nRAG focused"]
+        D3["Haystack\nPipelines"]
+    end
+    subgraph VectorDB["Vector Databases (store embeddings)"]
+        V1["Pinecone\nCloud-first"]
+        V2["Chroma\nLocal-first"]
+        V3["Qdrant\nSelf-hosted"]
+    end
+    subgraph Obs["Observability (monitor AI apps)"]
+        OB1["LangSmith\n(LangChain)"]
+        OB2["Langfuse\n(OSS)"]
+    end
+    Frontier --> DevTools
+    OSS --> DevTools
+    Infra --> DevTools
+    DevTools --> VectorDB
+    DevTools --> Obs
 ```
 
 ### How These Pieces Connect
 
-```
-You (AI Engineer) write code that:
-
-1. Calls OpenAI/Anthropic APIs to get LLM responses
-         ↓
-2. Uses LangChain/LlamaIndex to orchestrate the flow
-         ↓
-3. Stores/retrieves from Pinecone/Chroma vector DB
-         ↓
-4. Monitors everything with LangSmith/Langfuse
-         ↓
-5. Deploys as a FastAPI/Next.js app on AWS/GCP
+```mermaid
+flowchart TD
+    A["1. Call OpenAI/Anthropic APIs\nGet LLM responses"]
+    B["2. Use LangChain/LlamaIndex\nOrchestrate the flow"]
+    C["3. Store/retrieve from Pinecone/Chroma\nVector DB"]
+    D["4. Monitor with LangSmith/Langfuse"]
+    E["5. Deploy as FastAPI/Next.js app\non AWS/GCP"]
+    A --> B --> C --> D --> E
 ```
 
 ---

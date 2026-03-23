@@ -278,18 +278,15 @@ Two 3×3 conv layers have the same **receptive field** as one 5×5 layer, but:
 
 Introduced the **Inception module**: apply multiple filter sizes in parallel, concatenate results.
 
-```
-Inception module:
-         Input
-           │
-    ┌──────┼──────┬──────┐
-    │      │      │      │
-  1×1    1×1    1×1    3×3 pool
-   ↓      ↓      ↓       ↓
-  1×1   3×3    5×5     1×1
-   ↓      ↓      ↓       ↓
-         └──────────────┘
-               Concat
+```mermaid
+flowchart TD
+    In["Input"]
+    B1["1×1 conv"] --> C1["1×1 output"]
+    B2["1×1 conv"] --> B2b["3×3 conv"] --> C2["3×3 output"]
+    B3["1×1 conv"] --> B3b["5×5 conv"] --> C3["5×5 output"]
+    B4["3×3 max pool"] --> B4b["1×1 conv"] --> C4["pool output"]
+    In --> B1 & B2 & B3 & B4
+    C1 & C2 & C3 & C4 --> Concat["Concat (channel dimension)"]
 ```
 
 1×1 convolutions are used for dimensionality reduction before expensive 3×3 and 5×5 convolutions.

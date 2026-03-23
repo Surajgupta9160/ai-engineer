@@ -21,21 +21,22 @@ A/B test model versions         A/B test PROMPT versions
 
 ### The Production Readiness Pyramid
 
+```mermaid
+flowchart TD
+    L5["Level 5: IMPROVE\nEvaluation · A/B testing · feedback loops"]
+    L4["Level 4: OBSERVE\nTracing · logging · dashboards"]
+    L3["Level 3: SCALE\nCaching · rate limits · cost control"]
+    L2["Level 2: RELIABLE\nRetry · fallback · error handling"]
+    L1["Level 1: IT WORKS\nBasic API call, returns response"]
+    L1 --> L2 --> L3 --> L4 --> L5
+    style L1 fill:#fff3cd
+    style L2 fill:#d4edda
+    style L3 fill:#d1ecf1
+    style L4 fill:#cce5ff
+    style L5 fill:#d4edda
 ```
-           ┌───────────────────────────────┐
-           │  Level 5: IMPROVE             │  Evaluation, A/B testing, feedback
-           ├───────────────────────────────┤
-           │  Level 4: OBSERVE             │  Tracing, logging, dashboards
-           ├───────────────────────────────┤
-           │  Level 3: SCALE               │  Caching, rate limits, cost control
-           ├───────────────────────────────┤
-           │  Level 2: RELIABLE            │  Retry, fallback, error handling
-           ├───────────────────────────────┤
-           │  Level 1: IT WORKS            │  Basic API call, returns response
-           └───────────────────────────────┘
 
-Most apps stop at Level 2. Production-ready means Level 4-5.
-```
+Most apps stop at Level 2. Production-ready means Level 4–5.
 
 ---
 

@@ -157,35 +157,17 @@ A typical:
 
 Think of the context window like your working memory — the amount of information you can hold in your head at once while working on a problem.
 
-```
-Human working memory: ~7 items at once (Miller's Law)
-GPT-4o context window: 128,000 tokens (~96,000 words)
+Human working memory: ~7 items at once (Miller's Law). GPT-4o context window: 128,000 tokens (~96,000 words).
 
-Like a physical whiteboard:
-┌─────────────────────────────────────────────────────────────────┐
-│                    CONTEXT WINDOW (128K tokens)                  │
-│                                                                 │
-│  Everything here is "in memory" and influences the response:    │
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │ SYSTEM PROMPT (500 tokens)                                │  │
-│  │ "You are a helpful customer service assistant..."         │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │ CONVERSATION HISTORY (15,000 tokens)                      │  │
-│  │ [Previous 30 messages back and forth]                     │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │ RETRIEVED DOCUMENTS (40,000 tokens)                       │  │
-│  │ [RAG chunks from knowledge base]                          │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │ CURRENT USER MESSAGE (200 tokens)                         │  │
-│  │ "What is your return policy for electronics?"             │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                                                                 │
-│  TOTAL USED: ~55,700 tokens    REMAINING: ~72,300 tokens        │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+block-beta
+    columns 1
+    CW["CONTEXT WINDOW (128K tokens)\nEverything here is 'in memory' and influences the response"]:1
+    SP["SYSTEM PROMPT — 500 tokens\n'You are a helpful customer service assistant...'"]
+    CH["CONVERSATION HISTORY — 15,000 tokens\n[Previous 30 messages back and forth]"]
+    RD["RETRIEVED DOCUMENTS — 40,000 tokens\n[RAG chunks from knowledge base]"]
+    UM["CURRENT USER MESSAGE — 200 tokens\n'What is your return policy for electronics?'"]
+    SUM["TOTAL USED: ~55,700 tokens    REMAINING: ~72,300 tokens"]
 ```
 
 ### Context Window Sizes (2025)
@@ -624,32 +606,12 @@ Strategy 7: STRUCTURED OUTPUT WITH CONFIDENCE
 
 Every LLM conversation consists of messages, each with a **role**:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                  THREE MESSAGE ROLES                             │
-│                                                                 │
-│  SYSTEM (role: "system")                                       │
-│  ─────────────────────────────────────────────────────────     │
-│  • Written by YOU (the developer)                               │
-│  • Sets the AI's persona, rules, and constraints                │
-│  • Processed first, before any user messages                    │
-│  • Users typically don't see this                               │
-│  • Example: "You are a customer service agent for AcmeCorp.    │
-│    Only discuss our products. Be friendly and professional."    │
-│                                                                 │
-│  USER (role: "user")                                           │
-│  ─────────────────────────────────────────────────────────     │
-│  • Written by the end user (human turn)                         │
-│  • The actual questions, requests, or input                     │
-│  • Example: "What is your return policy?"                       │
-│                                                                 │
-│  ASSISTANT (role: "assistant")                                 │
-│  ─────────────────────────────────────────────────────────     │
-│  • Written by the AI (or by you when building history)          │
-│  • Previous AI responses in a conversation                      │
-│  • Include these to give the model memory of what it said       │
-│  • Example: "Our return policy allows returns within 30 days..."│
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    S["SYSTEM (role: 'system')\nWritten by YOU (developer)\nSets AI persona, rules, constraints\nProcessed first — users don't see this\nExample: 'You are a customer service agent...'"]
+    U["USER (role: 'user')\nWritten by end user\nActual questions, requests, input\nExample: 'What is your return policy?'"]
+    A["ASSISTANT (role: 'assistant')\nWritten by the AI (or you for history)\nPrevious AI responses\nInclude these for conversation memory\nExample: 'Our return policy allows...'"]
+    S --> U --> A
 ```
 
 ### Multi-Turn Conversation Structure
@@ -707,37 +669,22 @@ def build_conversation_example():
 
 ### Latency = Total Time for a Response
 
+```mermaid
+flowchart TD
+    R1["Request sent"]
+    R2["Network: 20–100ms\n(internet + server location)"]
+    R3["API server receives request\nQueue: 0–500ms (server load)"]
+    R4["Processing starts\nTokenization: ~1ms"]
+    R5["FIRST TOKEN GENERATED\n← TTFT: 100–800ms\nToken-by-token: 20–100ms each"]
+    R6["Final token generated\nNetwork back: 20–100ms"]
+    R7["You see complete response"]
+    R1 --> R2 --> R3 --> R4 --> R5 --> R6 --> R7
 ```
-Anatomy of LLM response time:
 
-[Request sent]
-     │
-     │ Network: 20-100ms (your internet + server location)
-     ▼
-[API server receives request]
-     │
-     │ Queue: 0-500ms (how busy the server is)
-     ▼
-[Processing starts]
-     │
-     │ Tokenization: ~1ms
-     ▼
-[First token generated] ← THIS is TTFT (Time to First Token)
-     │                     ~100-800ms for most models
-     │ Token by token generation:
-     │ ~20-100ms per token
-     ▼
-[Final token generated]
-     │
-     │ Network: 20-100ms back to you
-     ▼
-[You see complete response]
-
-TOTAL for a 200-word response (~270 tokens):
-  Best case: 0.5s + (270 × 20ms) = 5.9 seconds
-  Typical:   0.8s + (270 × 50ms) = 14.3 seconds
-  Busy:      2.0s + (270 × 80ms) = 23.6 seconds
-```
+**Total for a 200-word response (~270 tokens):**
+- Best case: 0.5s + (270 × 20ms) = 5.9 seconds
+- Typical: 0.8s + (270 × 50ms) = 14.3 seconds
+- Busy: 2.0s + (270 × 80ms) = 23.6 seconds
 
 ### TTFT — Time to First Token
 
@@ -875,56 +822,31 @@ For most purposes, Q4_K_M offers the best quality/size tradeoff.
 
 ## 11. Fine-Tuning vs Prompting vs RAG (Quick Reference)
 
-```
-┌───────────────────────────────────────────────────────────────────────┐
-│              COMPARISON: WHEN TO USE EACH APPROACH                    │
-│                                                                       │
-│  APPROACH       │ COST        │ SPEED  │ BEST FOR                    │
-│  ───────────────┼─────────────┼────────┼─────────────────────────    │
-│  Prompting      │ Free        │ Fast   │ Simple tasks, common needs  │
-│  (just write    │ (beyond API │        │ Quick iteration             │
-│   a prompt)     │ call cost)  │        │ Changing requirements       │
-│  ───────────────┼─────────────┼────────┼─────────────────────────    │
-│  RAG            │ Vector DB + │ Fast   │ Private/recent data         │
-│  (retrieve +    │ Embed calls │        │ Large document sets         │
-│   generate)     │ (~$10-100/m)│        │ Need citations/sources      │
-│  ───────────────┼─────────────┼────────┼─────────────────────────    │
-│  Fine-tuning    │ $100-$1000+ │ Fast   │ Consistent style/tone       │
-│  (train on      │ for training│ after  │ Specialised domain vocab    │
-│   your data)    │             │ train  │ Reduce prompt length        │
-└───────────────────────────────────────────────────────────────────────┘
+| Approach | Cost | Speed | Best For |
+|----------|------|-------|----------|
+| **Prompting** | Free (beyond API call) | Fast | Simple tasks, quick iteration, changing requirements |
+| **RAG** | Vector DB + embed calls (~$10-100/mo) | Fast | Private/recent data, large document sets, need citations |
+| **Fine-tuning** | $100–$1000+ for training | Fast after train | Consistent style/tone, domain vocab, reduce prompt length |
 
-The Golden Rule:
-  Try prompting first → if not good enough, try RAG
-  → if still not good enough, consider fine-tuning
-```
+**The Golden Rule:** Try prompting first → if not good enough, try RAG → if still not enough, consider fine-tuning.
 
 ---
 
 ## 12. Open Source vs Closed Source Models
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                     DETAILED COMPARISON                               │
-│                                                                      │
-│              CLOSED SOURCE              OPEN SOURCE                  │
-│              (GPT-4, Claude, Gemini)    (Llama, Mistral)             │
-│ ─────────────────────────────────────────────────────────────────    │
-│  Model weights   Not available          Downloadable (usually)       │
-│  Training data   Not disclosed          Often disclosed              │
-│  Modifications   Not possible           Possible (fine-tune)         │
-│  Cost structure  Pay per token          Pay for compute              │
-│  Privacy         Data goes to vendor    Data stays with you          │
-│  GDPR/HIPAA      Complex agreements     Full control                 │
-│  Maintenance     Vendor handles         You handle                   │
-│  Performance     State of the art       Near state of the art        │
-│  Availability    Depends on vendor      Always available             │
-│  Customisation   Limited (system prompt)│ Unlimited                  │
-│ ─────────────────────────────────────────────────────────────────    │
-│  Best for:       Production apps that   Sensitive data, cost         │
-│                  need best quality      at scale, custom needs       │
-└──────────────────────────────────────────────────────────────────────┘
-```
+| | Closed Source (GPT-4, Claude, Gemini) | Open Source (Llama, Mistral) |
+|---|---------------------------------------|------------------------------|
+| Model weights | Not available | Downloadable |
+| Training data | Not disclosed | Often disclosed |
+| Modifications | Not possible | Possible (fine-tune) |
+| Cost structure | Pay per token | Pay for compute |
+| Privacy | Data goes to vendor | Data stays with you |
+| GDPR/HIPAA | Complex agreements | Full control |
+| Maintenance | Vendor handles | You handle |
+| Performance | State of the art | Near state of the art |
+| Availability | Depends on vendor | Always available |
+| Customisation | Limited (system prompt) | Unlimited |
+| **Best for** | **Production apps needing best quality** | **Sensitive data, cost at scale, custom needs** |
 
 ---
 

@@ -303,23 +303,89 @@ SPECULATIVE DECODING IN PRODUCTION (recap):
   In continuous batching: use draft model for all decode steps,
   verify in target model as a batched verification forward pass.
   Works best when requests are similar in content (e.g., code completion).
+
+SPECULATIVE DECODING — HOW IT WORKS (step-by-step example):
+
+```mermaid
+sequenceDiagram
+    participant P as Prompt<br/>"The quick brown"
+    participant D as Draft Model (7B)<br/>cheap, fast
+    participant T as Target Model (70B)<br/>expensive, accurate
+    participant O as Output
+
+    P->>D: generate K=4 tokens autoregressively
+    Note over D: "fox"(q=0.85) → "jumps"(q=0.72)<br/>→ "over"(q=0.91) → "the"(q=0.88)
+
+    D->>T: all 4 draft tokens in ONE batch
+    Note over T: Single parallel forward pass<br/>scores all tokens simultaneously
+
+    T->>T: Acceptance check per token<br/>t1 "fox":   min(1, 0.90/0.85)=1.00 → ACCEPT ✅<br/>t2 "jumps": min(1, 0.68/0.72)=0.94 → ACCEPT ✅<br/>t3 "over":  min(1, 0.95/0.91)=1.00 → ACCEPT ✅<br/>t4 "the":   min(1, 0.85/0.88)=0.97 → REJECT ❌
+
+    T->>T: Sample correction token from p'(t)=normalize(max(0,p-q))<br/>→ outputs "a" instead of "the"
+
+    T->>O: "fox jumps over a" (4 tokens, cost ≈ 1 target pass)
+
+    Note over D,T: Standard decoding: 4 sequential target passes<br/>Speculative decoding: 1 cheap draft + 1 target pass = ~3× faster
+```
+
+SPECULATIVE DECODING — REJECTION SAMPLING PROOF (why output = target distribution):
+
+  The key guarantee: the output distribution is IDENTICAL to running only
+  the target model, even though most tokens were proposed by the draft model.
+
+  ALGORITHM (one speculative step):
+    1. Draft model proposes token t with probability q(t)
+    2. Target model evaluates t, assigns probability p(t)
+    3. ACCEPT t with probability min(1, p(t)/q(t)):
+         if p(t) ≥ q(t): always accept  (target agrees or prefers t more)
+         if p(t) < q(t): accept with probability p(t)/q(t)  (reject some)
+    4. If REJECTED: sample a new token from the adjusted distribution:
+         p'(t) = normalize(max(0, p(t) - q(t)))
+         This distribution covers what the target would sample that the
+         draft under-sampled — no token is permanently excluded.
+
+  WHY THIS PRESERVES THE TARGET DISTRIBUTION (the math):
+    Probability of outputting token t:
+      P(output = t) = P(draft proposes t) × P(accept t)
+                    + P(draft proposes t' ≠ t) × P(reject t') × P(resample → t)
+
+    First term: q(t) × min(1, p(t)/q(t))
+      If p(t) ≥ q(t): q(t) × 1 = q(t)            but we want p(t) > q(t) — covered by resampling
+      If p(t) < q(t): q(t) × p(t)/q(t) = p(t)    ← exact match to target
+
+    Resampling term covers the gap: when draft underrepresents tokens the
+    target prefers, the renormalized residual distribution fills in exactly
+    the missing probability mass.
+
+    Result: P(output = t) = p(t) for all t — identical to target.
+
+  PRACTICAL IMPLICATIONS:
+    Acceptance rate α = E[min(1, p(t)/q(t))]
+    K tokens accepted in expectation per target forward pass: K×α + 1 (the correction token)
+    Net speedup: (K×α + 1) / (cost_of_target + cost_of_draft×K)
+    → Speedup > 1 when α is high AND draft is cheap (10-100× smaller than target)
+
+    Typical numbers:
+      K=4, α=0.8 → 4×0.8 + 1 = 4.2 tokens per target pass → ~2.5× speedup
+      K=4, α=0.3 → 4×0.3 + 1 = 2.2 tokens per target pass → ~1.3× speedup (marginal)
+
+    Rule of thumb: speculative decoding is worth it when α > 0.6.
+    High α tasks: code completion, template filling, repetitive text.
+    Low α tasks: creative writing, open-ended generation, diverse sampling.
 ```
 
 ---
 
 ## 7. Inference Frameworks Comparison
 
-```
-┌───────────────────┬─────────────────┬──────────────────┬──────────────────┐
-│ Framework         │ Backend         │ Key feature      │ Best for         │
-├───────────────────┼─────────────────┼──────────────────┼──────────────────┤
-│ vLLM              │ Python/CUDA     │ PagedAttention   │ OSS production   │
-│ TGI (HuggingFace) │ Rust/Python     │ Continuous batch │ HF model zoo     │
-│ TensorRT-LLM      │ TensorRT/C++    │ Fused kernels    │ NVIDIA production│
-│ llama.cpp         │ C++/GGUF        │ CPU+Apple Silicon│ Local inference  │
-│ Ollama            │ llama.cpp based │ Easy local setup │ Developer local  │
-│ SGLang            │ Python/CUDA     │ RadixAttention   │ Structured gen   │
-└───────────────────┴─────────────────┴──────────────────┴──────────────────┘
+| Framework | Backend | Key Feature | Best For |
+|-----------|---------|-------------|----------|
+| vLLM | Python/CUDA | PagedAttention | OSS production |
+| TGI (HuggingFace) | Rust/Python | Continuous batching | HF model zoo |
+| TensorRT-LLM | TensorRT/C++ | Fused kernels | NVIDIA production |
+| llama.cpp | C++/GGUF | CPU + Apple Silicon | Local inference |
+| Ollama | llama.cpp-based | Easy local setup | Developer local |
+| SGLang | Python/CUDA | RadixAttention | Structured generation |
 
 SGLang RadixAttention:
   Extension of PagedAttention: tree-structured KV sharing.

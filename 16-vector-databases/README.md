@@ -52,32 +52,28 @@ Time: several seconds per query ← UNACCEPTABLE
 
 The most popular ANN (Approximate Nearest Neighbor) algorithm used by Pinecone, Weaviate, Qdrant.
 
+```mermaid
+flowchart TD
+    subgraph TOP["Top Layer (few nodes — long-range connections)"]
+        T1["Node A"] --- T2["Node B"]
+    end
+    subgraph MID["Middle Layer (moderate connections)"]
+        M1["Node C"] --- M2["Node D"]
+        M2 --- M3["Node E"]
+        M3 --- M4["Node F"]
+    end
+    subgraph BOT["Bottom Layer (many nodes — dense local connections)"]
+        B1 --- B2 --- B3 --- B4 --- B5 --- B6 --- B7 --- B8 --- B9 --- B10
+    end
+    T1 --> M1
+    T2 --> M4
+    M1 --> B1
+    M2 --> B4
+    M3 --> B7
+    M4 --> B9
 ```
-HNSW: The "social network" analogy
 
-Think of HNSW like social connections:
-  Top layer (layer 2): Famous people — know many others
-  Middle (layer 1):    Popular people — know many in their circle
-  Bottom (layer 0):    Everyone — densely connected locally
-
-Finding nearest neighbor:
-  1. Start at top layer, find rough neighborhood
-  2. Zoom into next layer, narrow down
-  3. At bottom layer, find exact neighbors in small area
-
-                TOP LAYER (few nodes, long-range connections)
-                 ●─────────────────────────────────●
-                 │                                  │
-MIDDLE LAYER    ●───●───────────────────────●───●
-                │   │                       │   │
-BOTTOM LAYER  ●─●─●─●─●─●─●─●─●─●─●─●─●─●─●─●─●─●
-              (many nodes, dense local connections)
-
-Result:
-  Instead of checking 1M nodes: check ~50-100 ← 10,000x faster!
-  Accuracy: 95-99% (finds the true nearest neighbor most of the time)
-  Trade-off: 1-5% chance of missing the absolute best match
-```
+> Note: Search starts at the top (fast, coarse), then narrows down layer by layer to the bottom (dense, precise). This gives ~50-100 comparisons instead of 1M — 10,000x faster, with 95-99% accuracy.
 
 ---
 
@@ -704,18 +700,18 @@ PARAMETERS:
     Default ~10-20; higher = better recall, higher latency
     Tune: plot recall@10 vs latency as you vary nprobe
 
-IVF vs HNSW comparison:
-┌─────────────────┬──────────────────┬──────────────────────┐
-│ Property        │ HNSW             │ IVF                  │
-├─────────────────┼──────────────────┼──────────────────────┤
-│ Build time      │ Slow             │ Requires training    │
-│ Memory          │ High (graph)     │ Low (lists only)     │
-│ Query latency   │ Very fast        │ Fast (with tuning)   │
-│ Recall@10       │ 95-99%           │ 85-95% (tunable)     │
-│ Incremental add │ Yes (online)     │ No (rebuild/delta)   │
-│ Best scale      │ 1M-100M          │ 100M-1B+             │
-└─────────────────┴──────────────────┴──────────────────────┘
 ```
+
+IVF vs HNSW comparison:
+
+| Property | HNSW | IVF |
+|----------|------|-----|
+| Build time | Slow | Requires training |
+| Memory | High (graph) | Low (lists only) |
+| Query latency | Very fast | Fast (with tuning) |
+| Recall@10 | 95–99% | 85–95% (tunable) |
+| Incremental add | Yes (online) | No (rebuild/delta) |
+| Best scale | 1M–100M | 100M–1B+ |
 
 ---
 

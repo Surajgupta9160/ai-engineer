@@ -105,82 +105,48 @@ Final layer outputs probability for each possible next word.
 
 Before 2017, language models used **RNNs** (Recurrent Neural Networks):
 
+```mermaid
+flowchart TD
+    subgraph RNN["RNN Processing (Sequential) — SLOW"]
+        T1["Process 'The' → h1"]
+        T2["Process 'cat' + h1 → h2"]
+        T3["Process 'sat' + h2 → h3"]
+        TN["... word by word"]
+        T1 --> T2 --> T3 --> TN
+    end
 ```
-RNN Processing (Sequential):
-  "The cat sat on the mat"
-       │
-       ▼
-  [Process "The"] → hidden state h1
-       │
-       ▼
-  [Process "cat"] + h1 → hidden state h2
-       │
-       ▼
-  [Process "sat"] + h2 → hidden state h3
-       │
-       ▼
-  ... and so on, word by word
 
-Problems with RNNs:
-  ✗ Sequential: Can't parallelise → SLOW training
-  ✗ "Forgetting": Information from 50 words ago gets diluted by the time
-    we process the 100th word (vanishing gradient problem)
-  ✗ Can't look back: By the time we're at word 100, word 1 is mostly forgotten
-```
+Problems with RNNs: sequential (can't parallelise), information fades over long distances (vanishing gradient), slow training.
 
 ### The Transformer Revolution (2017)
 
 The paper "Attention Is All You Need" introduced a completely different architecture:
 
+```mermaid
+flowchart TD
+    subgraph Transformer["Transformer Processing (Parallel) — FAST"]
+        Tokens["The · cat · sat · on · the · mat\n(ALL tokens processed simultaneously)"]
+        Attn["Each token ATTENDS to all other tokens\n'cat' directly sees 'The', 'mat', 'sat'"]
+        Tokens --> Attn
+    end
 ```
-Transformer Processing (Parallel):
-  "The cat sat on the mat"
-   │    │   │   │   │   │
-   ▼    ▼   ▼   ▼   ▼   ▼
-  [ALL tokens processed simultaneously]
-   │    │   │   │   │   │
-   ▼    ▼   ▼   ▼   ▼   ▼
-  [Each token ATTENDS to all other tokens]
-  "cat" can directly look at "The" and "mat" and "sat"
-  No forgetting, no sequential bottleneck
 
-Advantages:
-  ✓ Massively parallelisable → FAST training (use GPUs to full potential)
-  ✓ No forgetting: every token can attend to every other token equally
-  ✓ Scales beautifully: more hardware = bigger models = better results
-```
+Advantages: massively parallelisable (GPUs at full utilisation), no forgetting (every token attends to every other), scales beautifully with hardware.
 
 ### The GPT (Decoder-Only) Architecture
 
 Modern LLMs like GPT-4, Claude, and Llama use a "decoder-only" transformer:
 
-```
-Decoder-Only Transformer (GPT-style):
-
-INPUT TOKENS:   [The] [cat] [sat] [on] [the]
-                  │     │     │    │    │
-                  ▼     ▼     ▼    ▼    ▼
-EMBEDDING:      [vec] [vec] [vec] [vec] [vec]  ← Convert token IDs to vectors
-                  │     │     │    │    │
-POSITIONAL:     +pos  +pos  +pos  +pos  +pos    ← Add position information
-                  │     │     │    │    │
-                  ▼     ▼     ▼    ▼    ▼
-TRANSFORMER    ┌──────────────────────────────┐
-BLOCK 1:       │  Self-Attention              │  ← Tokens look at each other
-               │  Feed-Forward Network        │  ← Process each token
-               │  Layer Normalisation         │  ← Stabilise
-               └──────────────────────────────┘
-                  (repeat 32-96 times)
-                  │     │     │    │    │
-                  ▼     ▼     ▼    ▼    ▼
-OUTPUT HEAD:    probabilities for next token
-                "mat": 45%, "floor": 20%, ...
-
-KEY PROPERTY: Causal masking
-  "sat" can attend to: "The", "cat", "sat" (itself and before)
-  "sat" CANNOT attend to: "on", "the" (future tokens)
-  → Model only sees past, predicts future
-  → This allows next-token prediction during training
+```mermaid
+flowchart TD
+    Tokens["INPUT TOKENS: [The] [cat] [sat] [on] [the]"]
+    Embed["EMBEDDING: Convert token IDs → vectors"]
+    Pos["POSITIONAL ENCODING: Add position information"]
+    Block["TRANSFORMER BLOCK × 32–96\nSelf-Attention (tokens look at each other)\nFeed-Forward Network (process each token)\nLayer Normalisation (stabilise)"]
+    Out["OUTPUT HEAD: probabilities for next token\n'mat': 45%, 'floor': 20%, ..."]
+    Tokens --> Embed --> Pos --> Block --> Out
+    Note["KEY: Causal masking\n'sat' sees: 'The', 'cat', 'sat' ✓\n'sat' CANNOT see: 'on', 'the' (future) ✗\n→ Model predicts next token from past only"]
+    Block -.-> Note
 ```
 
 ---
@@ -429,29 +395,17 @@ Their outputs are CONCATENATED, then projected
 
 After self-attention, each token goes through a two-layer feed-forward network:
 
+```mermaid
+flowchart TD
+    In["token_vector (768 dim)"]
+    L1["Linear transformation: 768 → 3072 (expand 4×)"]
+    Act["Activation function (GELU or ReLU)"]
+    L2["Linear transformation: 3072 → 768 (compress back)"]
+    Out["Updated token_vector (768 dim)"]
+    In --> L1 --> Act --> L2 --> Out
 ```
-Feed-Forward Network (applied independently to each token):
 
-token_vector (768 dim)
-     │
-     ▼
-Linear transformation: 768 → 3072 (expand 4×)
-     │
-     ▼
-Activation function (GELU or ReLU)
-     │
-     ▼
-Linear transformation: 3072 → 768 (compress back)
-     │
-     ▼
-Updated token_vector (768 dim)
-
-Why expand then compress?
-  The expansion creates a "working space" where the network
-  can compute more complex transformations.
-  Think of it like: spreading papers on a desk to work,
-  then filing them neatly.
-```
+The expansion creates a "working space" for more complex transformations, then compresses back — like spreading papers on a desk, then filing them neatly.
 
 ---
 
@@ -521,6 +475,83 @@ KV-Cache solution:
   This is why:
     First token is slower (building cache from scratch)
     Subsequent tokens are faster (using cached K, V)
+
+KV CACHE MEMORY FORMULA:
+  Per token, per layer:
+    memory = 2 (K and V) × num_heads × head_dim × bytes_per_element
+
+  LLaMA-3-70B example (BF16, 80 layers, 64 heads, head_dim=128):
+    Per layer per token: 2 × 64 × 128 × 2 = 32,768 bytes = 32KB
+    Full 80 layers:      32KB × 80 = 2.56MB per token
+    Batch=100, context=2048: 2.56MB × 2048 × 100 ≈ 524GB
+
+  At long contexts the bottleneck shifts from compute-bound (prefill)
+  to memory-bandwidth-bound (decode) — every new token requires
+  reading the entire KV cache from HBM.
+```
+
+### GQA and MQA — Reducing KV Cache Memory
+
+```mermaid
+flowchart TB
+    subgraph MHA["MHA — Multi-Head Attention (standard, H=8)"]
+        direction TB
+        q1[Q1] --> kv1[K1/V1]
+        q2[Q2] --> kv2[K2/V2]
+        q3[Q3] --> kv3[K3/V3]
+        q4[Q4] --> kv4[K4/V4]
+        q5[Q5] --> kv5[K5/V5]
+        q6[Q6] --> kv6[K6/V6]
+        q7[Q7] --> kv7[K7/V7]
+        q8[Q8] --> kv8[K8/V8]
+    end
+
+    subgraph GQA["GQA — Grouped Query Attention (G=2, used in LLaMA-3)"]
+        direction TB
+        gq1[Q1] & gq2[Q2] & gq3[Q3] & gq4[Q4] --> gkv1[K1/V1 shared]
+        gq5[Q5] & gq6[Q6] & gq7[Q7] & gq8[Q8] --> gkv2[K2/V2 shared]
+    end
+
+    subgraph MQA["MQA — Multi-Query Attention (Falcon)"]
+        direction TB
+        mq1[Q1] & mq2[Q2] & mq3[Q3] & mq4[Q4] & mq5[Q5] & mq6[Q6] & mq7[Q7] & mq8[Q8] --> mkv[Single K/V for all heads]
+    end
+
+    note1["MHA: 8 KV pairs — full quality, high KV cache memory"]
+    note2["GQA: 2 KV pairs — near-MHA quality, 4× less KV memory ✅"]
+    note3["MQA: 1 KV pair — slight quality drop, 8× less KV memory"]
+```
+
+Standard Multi-Head Attention (MHA) has H query heads AND H key/value heads.
+At long context, KV heads dominate memory. Two solutions:
+
+```
+MULTI-QUERY ATTENTION (MQA):
+  H query heads, but only 1 KV head (shared across all Q heads).
+  Memory reduction: H× for KV cache (e.g., 8× for H=8).
+  Speed: dramatic decode speedup (1 KV read per forward pass vs H).
+  Quality: slight degradation; the single KV head is a bottleneck.
+  Used by: Falcon, early PaLM variants.
+
+GROUPED QUERY ATTENTION (GQA):
+  H query heads split into G groups; each group shares 1 KV head.
+  G KV heads total (1 ≤ G ≤ H).
+  Memory reduction: H/G × (e.g., G=8, H=64 → 8× KV memory reduction).
+  Quality/speed tradeoff: G=1 is MQA, G=H is MHA; G=8 is the sweet spot.
+  Used by: LLaMA-3 (G=8, H=64), Mistral, Gemma, Gemini.
+
+COMPARISON:
+  Method  | KV heads | Quality | KV memory  | Decode speed
+  ────────┼──────────┼─────────┼────────────┼──────────────
+  MHA     | H=64     | Best    | 100%       | Baseline
+  GQA G=8 | 8        | ~MHA    | 12.5%      | 4-8×  faster
+  MQA     | 1        | Slight  | 1.6%       | 8-16× faster
+          |          | drop    |            |
+
+Why GQA won over MQA in practice:
+  MQA's single KV head becomes a quality bottleneck for complex tasks.
+  GQA at G=8 recovers nearly all MHA quality at a fraction of KV memory.
+  GQA can be created by uptraining (converting an MHA checkpoint) at low cost.
 ```
 
 ---
@@ -886,45 +917,15 @@ Why decay? Prevents overfitting as training completes.
 
 ## 11. Model Architecture Variants
 
+```mermaid
+flowchart TD
+    EO["ENCODER-ONLY (BERT-style)\nInput: all tokens visible to each other (bidirectional)\nOutput: contextualised representation per token\nBest for: Classification · NER · Embeddings · Understanding\nExamples: BERT · RoBERTa · sentence-transformers"]
+    DO["DECODER-ONLY (GPT-style)\nInput: each token only sees PREVIOUS tokens (causal)\nOutput: probability distribution for next token\nBest for: Text generation · chat · completion · code\nExamples: GPT-4 · Claude · Llama · Mistral"]
+    ED["ENCODER-DECODER (T5/BART-style)\nEncoder reads full input (bidirectional)\nDecoder generates output one token at a time\nBest for: Translation · Summarisation · Q&A\nExamples: T5 · BART · mT5 · MarianMT"]
+    EO & DO & ED
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    TRANSFORMER VARIANTS                               │
-│                                                                      │
-│  ENCODER-ONLY (BERT-style):                                         │
-│  ┌─────────────────────────────────────────────────────────────┐    │
-│  │  Input: ["I", "love", "AI"]                                 │    │
-│  │  ALL tokens see ALL other tokens (bidirectional attention)  │    │
-│  │  Output: contextualised representation of each token        │    │
-│  │                                                             │    │
-│  │  Best for: Classification, NER, Embeddings, Understanding  │    │
-│  │  Examples: BERT, RoBERTa, sentence-transformers            │    │
-│  └─────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  DECODER-ONLY (GPT-style):                                          │
-│  ┌─────────────────────────────────────────────────────────────┐    │
-│  │  Input: ["I", "love"]                                       │    │
-│  │  Each token only sees PREVIOUS tokens (causal attention)    │    │
-│  │  Output: probability distribution for next token            │    │
-│  │                                                             │    │
-│  │  Best for: Text generation, chat, completion, code         │    │
-│  │  Examples: GPT-4, Claude, Llama, Mistral                  │    │
-│  └─────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  ENCODER-DECODER (T5/BART-style):                                   │
-│  ┌─────────────────────────────────────────────────────────────┐    │
-│  │  Encoder: reads full input (bidirectional)                  │    │
-│  │  Decoder: generates output one token at a time              │    │
-│  │                                                             │    │
-│  │  Best for: Translation, Summarisation, Question Answering   │    │
-│  │  Examples: T5, BART, mT5, MarianMT                         │    │
-│  └─────────────────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────────────────┘
 
-Modern trend: Decoder-only dominates for LLMs because:
-  - Simpler architecture (one component, not two)
-  - Can do everything encoders can do with appropriate prompting
-  - Scales better with more compute and data
-```
+Modern trend: Decoder-only dominates for LLMs because it's simpler (one component), can be prompted to do encoder tasks, and scales better.
 
 ---
 
@@ -1200,16 +1201,16 @@ APPROACH 4: ALiBi (Attention with Linear Biases) — MPT, BLOOM
     ✓ Strong extrapolation: train at 1K tokens, infer at 2-4K
     ✗ Weaker at very long-range token recall vs RoPE + YaRN
 
-COMPARISON:
-┌────────────────────┬──────────┬──────────────────┬──────────────────────────┐
-│ Method             │ Params   │ Context extension │ Models                   │
-├────────────────────┼──────────┼──────────────────┼──────────────────────────┤
-│ Sinusoidal         │ 0        │ Poor             │ Original Transformer      │
-│ Learned absolute   │ len × d  │ None             │ GPT-2, BERT               │
-│ RoPE               │ 0        │ Excellent (YaRN) │ LLaMA, Mistral, DeepSeek  │
-│ ALiBi              │ 0        │ Good (2-4×)      │ MPT, BLOOM                │
-└────────────────────┴──────────┴──────────────────┴──────────────────────────┘
 ```
+
+**Positional encoding comparison:**
+
+| Method | Extra Params | Context Extension | Used In |
+|--------|-------------|-------------------|---------|
+| Sinusoidal | 0 | Poor | Original Transformer |
+| Learned absolute | len × d | None | GPT-2, BERT |
+| RoPE | 0 | Excellent (YaRN) | LLaMA, Mistral, DeepSeek |
+| ALiBi | 0 | Good (2–4×) | MPT, BLOOM |
 
 ---
 
@@ -1249,6 +1250,52 @@ EXPERT COLLAPSE — THE KEY FAILURE MODE:
   Expert-choice routing (alternative):
     Each expert selects its top-B tokens (not the other way around).
     Guarantees perfect load balance; risk: some tokens skipped entirely.
+
+CAPACITY FACTOR — preventing token dropping:
+
+```mermaid
+flowchart LR
+    Router["🔀 Router\n(assigns each token\nto best expert)"]
+
+    subgraph CF10["CF = 1.0  (capacity = 4 per expert)"]
+        direction TB
+        E0a["Expert 0\nt0 t1 t2 t3\n⚠️ t4 t5 DROPPED"]:::danger
+        E1a["Expert 1\nt6 t7\n(underloaded)"]:::ok
+        E2a["Expert 2\nt8 t9 t10 t11"]:::ok
+        E3a["Expert 3\nt12 t13 t14 t15"]:::ok
+    end
+
+    subgraph CF15["CF = 1.5  (capacity = 6 per expert)"]
+        direction TB
+        E0b["Expert 0\nt0 t1 t2 t3 t4 t5 ✅"]:::ok
+        E1b["Expert 1\nt6 t7"]:::ok
+        E2b["Expert 2\nt8 t9 t10 t11"]:::ok
+        E3b["Expert 3\nt12 t13 t14 t15"]:::ok
+    end
+
+    Router --> CF10
+    Router --> CF15
+
+    classDef danger fill:#ffcccc,stroke:#cc0000,color:#000
+    classDef ok fill:#ccffcc,stroke:#006600,color:#000
+```
+
+> CF=1.0 drops overflowing tokens → silent quality degradation. CF=1.5 reserves 50% extra buffer → no drops, 1.5× memory cost per expert. Production default: **CF=1.25**.
+  Each expert has a fixed buffer: capacity = (tokens_per_batch / N) × capacity_factor
+  Default capacity_factor = 1.25 (25% headroom above perfectly balanced load).
+
+  If a batch sends more tokens to one expert than its capacity:
+    → Excess tokens are DROPPED (not processed by any expert for that layer)
+    → Dropped tokens receive a zero output for that MoE layer
+    → Too many drops → quality degrades
+
+  Tuning:
+    capacity_factor = 1.0: no slack, aggressive dropping on any imbalance
+    capacity_factor = 2.0: rarely drops, but wastes 2× memory reservation
+    capacity_factor = 1.25: production default (Switch Transformer, Mixtral)
+
+  Why not infinite capacity_factor? Memory: buffer size scales with CF.
+  For 8 experts at CF=2.0, each expert pre-allocates 2× expected tokens in HBM.
 
 INFERENCE CHALLENGES:
   Memory: ALL N experts loaded simultaneously (even if only K active)
@@ -1308,6 +1355,58 @@ ZeRO OPTIMIZER (DeepSpeed, Rajbhandari et al. 2020):
              Weights gathered on-the-fly; more communication overhead
 
   Production setup: ZeRO Stage 2-3 + Tensor Parallelism (for layer-wide ops)
+
+ZeRO STAGES — WHAT EACH GPU HOLDS (4-GPU example, 70B model):
+
+```mermaid
+block-beta
+    columns 5
+    label0[""]           g0_0["GPU 0"]          g0_1["GPU 1"]          g0_2["GPU 2"]          g0_3["GPU 3"]
+    label1["No ZeRO\n(840 GB each)"] b1_0["W + G + Opt\n840 GB"] b1_1["W + G + Opt\n840 GB"] b1_2["W + G + Opt\n840 GB"] b1_3["W + G + Opt\n840 GB"]
+    label2["Stage 1\nOpt sharded\n(4×↓ opt)"] b2_0["W + G\nOpt[0/4]"] b2_1["W + G\nOpt[1/4]"] b2_2["W + G\nOpt[2/4]"] b2_3["W + G\nOpt[3/4]"]
+    label3["Stage 2\n+ Grad sharded\n(8×↓)"] b3_0["W\nG[0/4] Opt[0/4]"] b3_1["W\nG[1/4] Opt[1/4]"] b3_2["W\nG[2/4] Opt[2/4]"] b3_3["W\nG[3/4] Opt[3/4]"]
+    label4["Stage 3\n+ Weights sharded\n(N×↓) ⚡"] b4_0["W[0/4]\nG[0/4] Opt[0/4]"] b4_1["W[1/4]\nG[1/4] Opt[1/4]"] b4_2["W[2/4]\nG[2/4] Opt[2/4]"] b4_3["W[3/4]\nG[3/4] Opt[3/4]"]
+```
+
+> **Stage 3 trade-off:** Weights must be all-gathered before each forward/backward layer → extra communication. Excellent for training at scale; avoid for serving (adds latency per request).
+
+ZERO vs TENSOR PARALLELISM vs PIPELINE PARALLELISM — DECISION FRAMEWORK:
+
+  TENSOR PARALLELISM (TP):
+    What: split weight matrices across GPUs within a single layer.
+    Example: W_Q (d×d) split column-wise across 8 GPUs → each holds d×(d/8).
+    Requirement: all-reduce after every sublayer → requires NVLink (>400 GB/s).
+    Latency: adds 1 all-reduce per layer on the critical path.
+    Use when: fast NVLink interconnect; serving (latency-critical); GPT-style dense layers.
+    ✗ Avoid when: GPUs connected over InfiniBand (<50 GB/s); small batches.
+
+  PIPELINE PARALLELISM (PP):
+    What: split model layers across GPUs (GPU 0 = layers 1-20, GPU 1 = 21-40, ...).
+    Pipeline bubble: GPU 0 idles while GPU 1 runs; efficiency = (micro_batches - 1)/micro_batches.
+    Reduces inter-GPU communication to micro-batch activations (cheap).
+    Use when: low inter-node bandwidth; very deep models; large batch sizes that hide bubble.
+    ✗ Avoid when: small micro-batches (large bubble fraction) or latency-critical serving.
+
+  ZeRO (Data Parallelism + state sharding):
+    What: full model replicated logically; optimizer states/grads/params sharded.
+    No change to model architecture; no layer splitting or matrix splitting.
+    Communication: all-gather before each forward layer (ZeRO-3) or just optimizer sync (Stage 1-2).
+    Use when: slower interconnects (InfiniBand is fine for ZeRO-2); training not serving;
+              want simple scaling without model architecture changes.
+    ✗ Avoid when: serving (weight all-gathers add latency to every request).
+
+  DECISION TREE:
+    Serving (latency SLA)?  → Tensor Parallelism (TP) within a node (NVLink)
+    Training, NVLink cluster? → ZeRO-2 + TP (standard DeepSpeed + Megatron setup)
+    Training, InfiniBand only? → ZeRO-2 or ZeRO-3 (avoids expensive cross-node all-reduce)
+    Training, very deep model (100+ layers), many nodes? → PP + ZeRO-2 (reduce bubble with large micro-batches)
+    Training, >1T params (future scale)? → ZeRO-3 + PP + TP (3D parallelism)
+
+  MEMORY GUIDE at 70B model, 8× H100 (80GB):
+    No parallelism:  70B × 2 bytes = 140GB → doesn't fit
+    TP=8 (NVLink):   140/8 = 17.5GB weights + KV cache → fits for serving
+    ZeRO-3 train:    840GB optimizer / 8 GPUs = 105GB per GPU → fits with offload tricks
+    ZeRO-2 train:    840GB × (1 + 1/8) ≈ ~210GB parameters+grads shared → typically 2+ nodes
 
 LOSS SPIKES:
   See Section 6 of this module for full diagnostic.

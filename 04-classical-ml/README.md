@@ -116,6 +116,68 @@ Overfitting:  training low, validation high (model memorized training data)
 - Reduce model complexity
 - Early stopping
 
+### Double Descent — Why Large Models Don't Follow the Classical U-Curve
+
+Classical ML predicts a single U-shaped test loss curve: performance improves with model complexity, then degrades as the model overfits. Modern large models violate this — they keep improving even after training loss reaches zero. The explanation is **double descent**.
+
+```mermaid
+xychart-beta
+    title "Double Descent — Test Loss vs Model Complexity"
+    x-axis ["Tiny (underfit)", "Small", "Medium (sweet spot)", "Interpolation threshold ⚠️", "Large", "Very Large", "Massive (LLaMA-3)"]
+    y-axis "Test Loss (lower = better)" 0 --> 10
+    line [9, 6, 3, 8, 5, 3, 1]
+```
+
+> **Reading the chart:** Loss drops (good), then spikes at the interpolation threshold where the model just barely fits training data, then drops again in the overparameterized regime — the **second descent**. LLaMA-3-8B on 15T tokens lives at the far right.
+
+**Real-world anchor:**
+- Classical sweet spot: sklearn RandomForest with 100 trees on 10K examples
+- Interpolation spike: a neural net just large enough to memorize training data
+- Second descent: LLaMA-3-8B trained on 15T tokens — still improving at 94× Chinchilla-optimal
+
+**Classical view:** test loss follows a U-curve — decreases then increases with model complexity.
+
+**Double descent** (overparameterized regime): loss spikes at the interpolation threshold, then decreases again in the second descent.
+
+Interpolation threshold: the point where the model is just large
+  enough to perfectly fit (interpolate) the entire training set.
+  Test loss SPIKES here — model fits training data but is brittle.
+
+Second descent: beyond the threshold, with even more parameters,
+  the model finds a SMOOTHER, more generalizable solution.
+  The optimizer (SGD/Adam) implicitly prefers low-norm solutions
+  among all solutions that fit the training data — this acts as
+  an implicit regularizer.
+```
+
+**Why this happens — the implicit regularizer:**
+SGD with early stopping, weight decay, and large learning rates biases
+toward flat minima (low curvature) — solutions that generalize better.
+In the overparameterized regime, there are infinitely many solutions
+with zero training loss; SGD finds the "simplest" one by inductive bias.
+
+**Double descent on the training steps axis:**
+The same phenomenon appears as a function of training duration, not just
+model size. A model early in training → underfitting; at intermediate
+training → interpolation threshold → high test loss; continuing to train
+→ second descent → good generalization. This is also called **grokking**
+(Nanda et al., 2022) — delayed generalization where the model memorizes
+first, then generalizes after many more steps.
+
+**Benign overfitting:**
+In heavily overparameterized models, perfect memorization of training
+data (zero train loss) is *compatible with* low test loss. The model
+memorizes signal and noise separately, using different "directions" in
+the high-dimensional parameter space. Each additional parameter slightly
+smooths the interpolation rather than amplifying the fit of noise.
+
+**Practical implications for LLMs:**
+- LLaMA-3-8B on 15T tokens (94× Chinchilla-optimal) continues to improve
+  — this is the second descent, not overfitting
+- Never stop training based on classical "train loss hits zero = overfit" logic
+- Standard L2 regularization or early stopping can actually *hurt* at
+  overparameterized scale — you may be stopping at the interpolation spike
+
 ---
 
 ## 3. Key Supervised Algorithms

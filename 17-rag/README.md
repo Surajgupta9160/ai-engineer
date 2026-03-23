@@ -70,82 +70,41 @@ RAG IS CHEAPER AND ALWAYS FRESH
 
 ## 2. RAG vs Fine-Tuning vs Long Context
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│              CHOOSING YOUR APPROACH                                   │
-├────────────────┬──────────────────────────────────────────────────── │
-│ Approach       │ Use When                                             │
-├────────────────┼───────────────────────────────────────────────────  │
-│ Prompting      │ • Task is straightforward                           │
-│ (no retrieval) │ • Info is in LLM's training data                    │
-│                │ • Small amount of context needed                    │
-├────────────────┼───────────────────────────────────────────────────  │
-│ RAG            │ • Private/proprietary documents                     │
-│                │ • Frequently changing data                          │
-│                │ • Large knowledge base (1000s of docs)              │
-│                │ • Need citations/sources in answers                 │
-│                │ • Recent information beyond training cutoff         │
-├────────────────┼───────────────────────────────────────────────────  │
-│ Fine-tuning    │ • Need specific tone/style consistency              │
-│                │ • Specialised domain vocabulary                     │
-│                │ • Reduce expensive prompt length at scale           │
-│                │ • Task not improvable by prompting                  │
-├────────────────┼───────────────────────────────────────────────────  │
-│ Long context   │ • Small set of documents (<500K tokens)             │
-│ (e.g., 1M)     │ • Don't know which parts are relevant               │
-│                │ • Want entire document in context always            │
-└────────────────┴───────────────────────────────────────────────────  │
+```mermaid
+flowchart TD
+    Q{"What approach?"}
+    P["Prompting only\n(no retrieval)\n• Straightforward task\n• Info in training data\n• Small context needed"]
+    R["RAG\n• Private/proprietary documents\n• Frequently changing data\n• Large knowledge base\n• Need citations\n• Post-cutoff info"]
+    F["Fine-tuning\n• Specific tone/style\n• Domain vocabulary\n• Reduce prompt cost at scale\n• Task not improvable by prompting"]
+    L["Long Context (1M tokens)\n• Small doc set (<500K tokens)\n• Don't know relevant parts\n• Entire doc always needed"]
+    Q --> P & R & F & L
 ```
 
 ---
 
 ## 3. Core RAG Architecture
 
+```mermaid
+flowchart TD
+    subgraph Indexing["PHASE 1: INDEXING (run once, update when docs change)"]
+        Docs["Raw Docs\nPDF · Word · HTML · CSV"]
+        Text["Extracted Text"]
+        Chunks["Chunks\n~500 chars each"]
+        VDB["Vector DB\n[0.2, -0.1, ...]\n[0.8, 0.3, ...]\n+ original text"]
+        Docs --> Text --> Chunks -->|Embed each chunk| VDB
+    end
+    subgraph Querying["PHASE 2: QUERYING (every user request)"]
+        User["User: 'What is the return policy?'"]
+        EQ["1. Embed query → [0.45, -0.12, ...]"]
+        Search["2. Search vector DB → top 3 chunks\n'Returns within 30 days...'\n'Items in original packaging...'\n'Refunds in 5-7 days...'"]
+        Prompt["3. Build prompt\nSYSTEM: Answer using context, cite sources\nCONTEXT: [chunk1] [chunk2] [chunk3]\nUSER: What is the return policy?"]
+        LLM["4. LLM response\n'You can return items within 30 days...\n[Source: returns_policy.pdf]'"]
+        User --> EQ --> Search --> Prompt --> LLM
+    end
+    VDB -.->|Retrieved at query time| Search
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         RAG ARCHITECTURE                             │
-│                                                                     │
-│  PHASE 1: INDEXING (Run once, update when docs change)             │
-│  ──────────────────────────────────────────────────────            │
-│                                                                     │
-│  ┌──────────┐   Extract   ┌───────────┐   Split   ┌────────────┐  │
-│  │ Raw Docs │────────────►│   Text    │──────────►│  Chunks    │  │
-│  │ PDF,Word │             │           │           │ 500 chars  │  │
-│  │ HTML,CSV │             └───────────┘           │ each       │  │
-│  └──────────┘                                     └─────┬──────┘  │
-│                                                         │          │
-│                                                    Embed each      │
-│                                                         │          │
-│                                                    ┌────▼───────┐  │
-│                                                    │ Vector DB  │  │
-│                                                    │[0.2,-0.1,..]│ │
-│                                                    │[0.8, 0.3,..]│ │
-│                                                    │[...] + text │ │
-│                                                    └────────────┘  │
-│                                                                     │
-│  PHASE 2: QUERYING (Every user request)                            │
-│  ──────────────────────────────────────────────────────            │
-│                                                                     │
-│  User: "What is the return policy?"                                 │
-│    │                                                                │
-│    ├─1. Embed query: [0.45, -0.12, ...]                            │
-│    │                                                                │
-│    ├─2. Search vector DB → top 3 similar chunks                    │
-│    │     "Returns within 30 days..."                               │
-│    │     "Items must be in original packaging..."                  │
-│    │     "Refund processed within 5-7 business days..."            │
-│    │                                                                │
-│    ├─3. Build prompt:                                              │
-│    │     SYSTEM: Use context to answer. Cite sources.              │
-│    │     CONTEXT: [chunk1] [chunk2] [chunk3]                       │
-│    │     USER: What is the return policy?                          │
-│    │                                                                │
-│    └─4. LLM response:                                              │
-│          "You can return items within 30 days, in original          │
-│           packaging. Refunds take 5-7 business days. [Source:      │
-│           returns_policy.pdf]"                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
+
+> Note: Phase 1 runs once (or when documents change). Phase 2 runs on every user query.
 
 ---
 

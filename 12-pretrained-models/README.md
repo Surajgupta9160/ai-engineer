@@ -709,21 +709,18 @@ Mixtral 8×7B — Mixture of Experts:
     → Inference cost is only 14B
     → 4x efficient!
 
-Visual:
-  Token "hello" arrives
-        │
-        ▼
-    [Router: decides which 2 experts to use]
-        │
-    ┌───┴───┐
-    │       │
-  Expert 3  Expert 7   ← Only these 2 fire
-    │       │
-    └───┬───┘
-        │
-    Final output
-
-  Experts 1,2,4,5,6,8 → inactive (saving compute)
+```mermaid
+flowchart TD
+    T["Token 'hello' arrives"]
+    R["Router: decides which 2 experts to use"]
+    E3["Expert 3"]
+    E7["Expert 7"]
+    OUT["Final output (combined)"]
+    INACTIVE["Experts 1,2,4,5,6,8 → INACTIVE (saving compute)"]
+    T --> R
+    R --> E3 & E7
+    E3 & E7 --> OUT
+    R -.-> INACTIVE
 ```
 
 ```python
@@ -774,19 +771,18 @@ print(response.choices[0].message.content)
 
 Most AI companies focus on chat models. Cohere focuses on **enterprise search and retrieval** use cases.
 
-```
-Cohere's Product Focus:
-  ┌─────────────────────────────────────────────────────────────┐
-  │  Command R/R+     → Best models for RAG applications       │
-  │  Embed v3         → Best embedding models for search       │
-  │  Rerank           → Dramatically improves search quality   │
-  │  Classify         → Text classification pipeline           │
-  └─────────────────────────────────────────────────────────────┘
+**Cohere's Product Focus:**
+- Command R/R+ → Best models for RAG applications
+- Embed v3 → Best embedding models for search
+- Rerank → Dramatically improves search quality
+- Classify → Text classification pipeline
 
 The Cohere Workflow (optimized for enterprise):
 
-  Query → Embed query → Search DB → Rerank results → Generate answer
-             ↑               ↑           ↑                  ↑
+```mermaid
+flowchart LR
+    Q["Query"] --> EQ["Embed query\n(Embed v3)"] --> SD["Search DB"] --> RR["Rerank results\n(Rerank)"] --> GA["Generate answer\n(Command R/R+)"]
+```
           Cohere          Any DB      Cohere             Command R
           Embed v3                    Rerank
 ```

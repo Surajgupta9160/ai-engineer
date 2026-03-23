@@ -800,40 +800,26 @@ Complex models often give way to simpler ones trained with more data:
 
 ## Timeline Summary
 
-```
-1943  McCulloch-Pitts neuron
-1950  Turing Test proposed
-1956  Dartmouth Conference — AI founded
-1957  Perceptron (Rosenblatt)
-1966  ELIZA — first chatbot
-1969  Perceptron limitations (Minsky & Papert) → First AI Winter
-1974  First AI Winter
-1980s Expert Systems boom
-1986  Backpropagation rediscovered (Rumelhart, Hinton, Williams)
-1987  Lisp Machine collapse → Second AI Winter
-1995  Support Vector Machines (Vapnik)
-1997  Deep Blue beats Kasparov in chess
-2001  Random Forests (Breiman)
-2006  Deep Belief Nets, layer-wise pretraining (Hinton)
-2007  CUDA — GPU computing becomes accessible
-2009  ImageNet dataset released (Fei-Fei Li)
-2011  AlexNet built (tested 2012)
-2012  AlexNet wins ImageNet by 10pp → Deep Learning Revolution
-2013  Word2Vec (Mikolov) — word embeddings
-2014  Attention mechanism (Bahdanau) — seq2seq translation
-2014  GANs (Goodfellow)
-2015  ResNet — superhuman image recognition
-2015  TensorFlow released (Google)
-2017  "Attention Is All You Need" — Transformer paper
-2017  PyTorch released (Facebook)
-2018  BERT (Google) and GPT (OpenAI)
-2019  GPT-2, Transformer-XL
-2020  GPT-3 (175B), Scaling Laws paper
-2021  GitHub Copilot
-2022  InstructGPT, RLHF, ChatGPT (Nov 30)
-2023  GPT-4, Claude 2, Llama 2, Mixtral, function calling
-2024  Claude 3, GPT-4o, Llama 3, reasoning models (o1, R1)
-2025  Agentic AI, MCP, multimodal at scale
+```mermaid
+flowchart TD
+    N1["1943 McCulloch-Pitts neuron"]
+    N2["1950 Turing Test proposed"]
+    N3["1956 Dartmouth Conference — AI founded"]
+    N4["1957 Perceptron (Rosenblatt)"]
+    N5["1966 ELIZA — first chatbot"]
+    N6["1969 Perceptron limitations (Minsky & Papert)"]
+    W1["❄️ FIRST AI WINTER (1974)"]
+    N7["1980s Expert Systems boom"]
+    N8["1986 Backpropagation rediscovered"]
+    W2["❄️ SECOND AI WINTER (1987)"]
+    N9["1995 SVMs (Vapnik)\n1997 Deep Blue beats Kasparov\n2001 Random Forests (Breiman)"]
+    N10["2006 Deep Belief Nets (Hinton)\n2007 CUDA — GPU computing\n2009 ImageNet dataset"]
+    N11["2012 AlexNet — Deep Learning Revolution\n2013 Word2Vec · 2014 Attention · GANs\n2015 ResNet · TensorFlow\n2017 Transformer · PyTorch"]
+    N12["2018 BERT & GPT\n2020 GPT-3 (175B) · Scaling Laws\n2022 InstructGPT · RLHF · ChatGPT"]
+    N13["2023 GPT-4 · Claude 2 · Llama 2 · Mixtral\n2024 Claude 3 · GPT-4o · Reasoning models\n2025 Agentic AI · MCP · Multimodal at scale"]
+    N1 --> N2 --> N3 --> N4 --> N5 --> N6 --> W1 --> N7 --> N8 --> W2 --> N9 --> N10 --> N11 --> N12 --> N13
+    style W1 fill:#cce5ff
+    style W2 fill:#cce5ff
 ```
 
 ---

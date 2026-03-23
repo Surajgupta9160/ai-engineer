@@ -2,122 +2,47 @@
 
 ## The Integration Chaos Problem: N×M vs N+M
 
+```mermaid
+flowchart LR
+    subgraph Without["WITHOUT MCP: N×M problem (3 apps × 5 tools = 15 integrations)"]
+        CA["Claude Desktop"] --- GH1["GitHub API"]
+        CA --- FS1["Filesystem"]
+        CA --- DB1["Database"]
+        CU["Cursor IDE"] --- GH2["GitHub API"]
+        CU --- FS2["Filesystem"]
+        CU --- DB2["Database"]
+        YA["Your App"] --- GH3["GitHub API"]
+        YA --- FS3["Filesystem"]
+        YA --- DB3["Database"]
+    end
 ```
-WITHOUT MCP: THE N×M INTEGRATION PROBLEM
-============================================================
 
-Every AI application needs custom code to connect to every tool.
-If you have N AI apps and M tools, you need N×M integrations.
-
-  3 AI apps × 5 tools = 15 custom integrations
-
-  ┌──────────────┐          ┌──────────────┐
-  │  Claude      │ ─────────│  GitHub      │
-  │  Desktop     │ ─────────│  API         │
-  │              │ ─────────│              │
-  └──────────────┘    ╳     └──────────────┘
-  ┌──────────────┐    ╳     ┌──────────────┐
-  │  Cursor IDE  │ ─────────│  Filesystem  │
-  │              │ ─────────│              │
-  └──────────────┘    ╳     └──────────────┘
-  ┌──────────────┐    ╳     ┌──────────────┐
-  │  Your App    │ ─────────│  Database    │
-  │              │ ─────────│              │
-  └──────────────┘          └──────────────┘
-
-  3 AI apps × 5 tools = 15 custom integrations
-  Each one requires:
-    - Authentication handling
-    - Data format conversion
-    - Error handling
-    - Maintenance when APIs change
-
-WITH MCP: THE N+M SOLUTION
-============================================================
-
-Each AI app implements MCP CLIENT once.
-Each tool implements MCP SERVER once.
-They speak a common protocol.
-
-  ┌──────────────┐     MCP     ┌──────────────┐
-  │  Claude      │◄───────────►│  GitHub      │
-  │  Desktop     │     MCP     │  MCP Server  │
-  │  (client)    │◄───────────►│              │
-  └──────────────┘     MCP     └──────────────┘
-  ┌──────────────┐◄───────────►┌──────────────┐
-  │  Cursor IDE  │     MCP     │  Filesystem  │
-  │  (client)    │◄───────────►│  MCP Server  │
-  └──────────────┘     MCP     └──────────────┘
-  ┌──────────────┐◄───────────►┌──────────────┐
-  │  Your App    │             │  Database    │
-  │  (client)    │             │  MCP Server  │
-  └──────────────┘             └──────────────┘
-
-  3 AI apps + 5 tools = 8 implementations (not 15!)
-  Any client works with any server automatically.
-
-WHY "USB STANDARD FOR AI":
-  USB: Any USB device works with any USB port.
-  MCP: Any MCP server works with any MCP client.
-  No custom drivers. No custom integrations.
+```mermaid
+flowchart LR
+    subgraph With["WITH MCP: N+M solution (3 apps + 5 tools = 8 implementations)"]
+        CA2["Claude Desktop\n(MCP Client)"] <-->|MCP Protocol| GHs["GitHub MCP Server"]
+        CA2 <-->|MCP Protocol| FSs["Filesystem MCP Server"]
+        CA2 <-->|MCP Protocol| DBs["Database MCP Server"]
+        CU2["Cursor IDE\n(MCP Client)"] <-->|MCP Protocol| GHs
+        CU2 <-->|MCP Protocol| FSs
+        YA2["Your App\n(MCP Client)"] <-->|MCP Protocol| DBs
+    end
 ```
+
+> Note: Like USB — any MCP server works with any MCP client. No custom drivers, no custom integrations. Each party implements the protocol once.
 
 ---
 
 ## MCP Architecture: Host, Client, Server
 
-```
-MCP COMPONENT ARCHITECTURE
-============================================================
-
-┌─────────────────────────────────────────────────────────┐
-│                    HOST APPLICATION                       │
-│           (Claude Desktop, Cursor, your app)             │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │                  MCP CLIENT                       │   │
-│  │                                                   │   │
-│  │  Responsibilities:                                │   │
-│  │  - Manages connections to MCP servers             │   │
-│  │  - Sends requests (list_tools, call_tool, etc.)   │   │
-│  │  - Receives and caches server capabilities        │   │
-│  │  - Injects tool/resource info into LLM context    │   │
-│  │  - Routes tool_calls from LLM to correct server   │   │
-│  └──────────────────────────────────────────────────┘   │
-│                            │                             │
-│              MCP Protocol  │  (JSON-RPC 2.0)            │
-│                            │                             │
-└────────────────────────────┼─────────────────────────────┘
-                             │
-         ┌───────────────────┼──────────────────┐
-         │                   │                  │
-         ▼                   ▼                  ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│  MCP SERVER A   │ │  MCP SERVER B   │ │  MCP SERVER C   │
-│  (filesystem)   │ │  (github)       │ │  (your db)      │
-│                 │ │                 │ │                 │
-│ Resources:      │ │ Resources:      │ │ Resources:      │
-│  - file://...   │ │  - repo://...   │ │  - table://...  │
-│                 │ │                 │ │                 │
-│ Tools:          │ │ Tools:          │ │ Tools:          │
-│  - read_file    │ │  - search_repos │ │  - query_db     │
-│  - write_file   │ │  - create_issue │ │  - insert_row   │
-│  - list_dir     │ │  - list_prs     │ │                 │
-│                 │ │                 │ │ Prompts:        │
-│ Prompts:        │ │ Prompts:        │ │  - sql_helper   │
-│  - edit_file    │ │  - pr_review    │ │                 │
-└─────────────────┘ └─────────────────┘ └─────────────────┘
-
-TRANSPORT LAYER:
-  stdio     — Server runs as subprocess; stdin/stdout communication
-              Used for: local tools, CLI-based servers
-              Pro: Simple, no networking, secure
-              Con: Single host, process overhead
-
-  HTTP+SSE  — Server runs as HTTP service; SSE for streaming
-              Used for: remote services, shared servers, production
-              Pro: Remote access, multiple clients, scalable
-              Con: Network overhead, auth complexity
+```mermaid
+flowchart TD
+    subgraph Host["HOST APPLICATION (Claude Desktop, Cursor, your app)"]
+        Client["MCP CLIENT\n• Manages server connections\n• Sends requests (list_tools, call_tool)\n• Injects tool/resource info into LLM context\n• Routes tool_calls to correct server"]
+    end
+    Client -->|JSON-RPC 2.0 over stdio or HTTP+SSE| SA["MCP SERVER A\n(filesystem)\nResources: file://...\nTools: read_file, write_file, list_dir\nPrompts: edit_file"]
+    Client -->|JSON-RPC 2.0| SB["MCP SERVER B\n(github)\nResources: repo://...\nTools: search_repos, create_issue, list_prs\nPrompts: pr_review"]
+    Client -->|JSON-RPC 2.0| SC["MCP SERVER C\n(your db)\nResources: table://...\nTools: query_db, insert_row\nPrompts: sql_helper"]
 ```
 
 ---
@@ -193,51 +118,27 @@ When to use prompts:
 
 ## Transport Layer: stdio vs HTTP+SSE
 
+```mermaid
+sequenceDiagram
+    participant C as MCP Client
+    participant SS as MCP Server (stdio subprocess)
+    C->>SS: stdin: JSON-RPC request
+    SS->>C: stdout: JSON-RPC response
+    Note over SS: stderr for logs only
 ```
-TRANSPORT COMPARISON
-============================================================
 
-STDIO TRANSPORT
-══════════════
-  ┌──────────────┐     stdin/stdout     ┌──────────────┐
-  │  MCP Client  │◄────────────────────►│  MCP Server  │
-  │              │                      │  (subprocess)│
-  └──────────────┘                      └──────────────┘
+**stdio best for:** local tools (filesystem, git), development, security-sensitive tools, Claude Desktop.
 
-  Communication:
-    Client spawns server as subprocess
-    Messages sent over stdin (client→server)
-    Responses sent over stdout (server→client)
-    stderr is for logs (not protocol messages)
+```mermaid
+sequenceDiagram
+    participant C as MCP Client
+    participant HS as MCP Server (HTTP API)
+    C->>HS: HTTP POST /messages (request)
+    HS-->>C: SSE stream (responses + notifications)
+    Note over C,HS: SSE = Server-Sent Events (one-way from server)
+```
 
-  Message format:
-    Newline-delimited JSON-RPC 2.0
-    {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
-
-  Best for:
-    - Local tools (filesystem, git, local database)
-    - Development and testing
-    - Security-sensitive tools (no network exposure)
-    - Claude Desktop configuration
-
-HTTP+SSE TRANSPORT
-═══════════════════
-  ┌──────────────┐     HTTP POST     ┌──────────────┐
-  │  MCP Client  │──────────────────►│  MCP Server  │
-  │              │◄──────────────────│  (HTTP API)  │
-  │              │  SSE (streaming)  │              │
-  └──────────────┘                   └──────────────┘
-
-  Communication:
-    Client sends requests via HTTP POST
-    Server sends responses and notifications via SSE
-    SSE = Server-Sent Events (one-way streaming from server)
-
-  Best for:
-    - Remote/cloud-hosted tools
-    - Shared servers (multiple clients connecting)
-    - Production deployments
-    - When tools need to push notifications to client
+**HTTP+SSE best for:** remote/cloud-hosted tools, shared servers, production deployments.
 
   Endpoints:
     GET  /sse         — Establish SSE connection

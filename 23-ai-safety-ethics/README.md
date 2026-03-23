@@ -62,58 +62,18 @@ REAL-WORLD AI INCIDENTS
 A responsible AI application has multiple safety layers. No single layer is
 perfect — the goal is that an attacker or a failure must defeat all layers.
 
+```mermaid
+flowchart TD
+    Input["USER INPUT"]
+    L1["LAYER 1: INPUT VALIDATION\n• Length limits\n• Content moderation (OpenAI Moderation API)\n• PII detection and redaction\n• Prompt injection detection\n• Rate limiting per user/IP"]
+    L2["LAYER 2: SYSTEM PROMPT HARDENING\n• Clear role definition\n• Explicit prohibitions\n• Output format constraints\n• Context isolation (user vs system)"]
+    L3["LAYER 3: LLM MODEL\n• Built-in RLHF safety training\n• Constitutional AI (Anthropic)\n• GPT-4 safety fine-tuning"]
+    L4["LAYER 4: OUTPUT VALIDATION\n• Content moderation on responses\n• PII scan before displaying\n• Format validation\n• Fact-checking hooks\n• Guardrails AI / NeMo Guardrails"]
+    L5["LAYER 5: OBSERVABILITY\n• Log all requests and responses\n• Monitor for abuse patterns\n• Alert on safety triggers\n• Human review queue"]
+    Input --> L1 --> L2 --> L3 --> L4 --> L5
 ```
-AI APPLICATION SAFETY ARCHITECTURE
-============================================================
 
-  ┌─────────────────────────────────────────────────────┐
-  │                   USER INPUT                         │
-  └────────────────────────┬────────────────────────────┘
-                           │
-  ┌────────────────────────▼────────────────────────────┐
-  │            LAYER 1: INPUT VALIDATION                 │
-  │  - Length limits                                     │
-  │  - Content moderation (OpenAI Moderation API)        │
-  │  - PII detection and redaction                       │
-  │  - Prompt injection detection                        │
-  │  - Rate limiting per user/IP                         │
-  └────────────────────────┬────────────────────────────┘
-                           │
-  ┌────────────────────────▼────────────────────────────┐
-  │            LAYER 2: SYSTEM PROMPT HARDENING          │
-  │  - Clear role definition                             │
-  │  - Explicit prohibitions                             │
-  │  - Output format constraints                         │
-  │  - Context isolation (user vs system instructions)   │
-  └────────────────────────┬────────────────────────────┘
-                           │
-  ┌────────────────────────▼────────────────────────────┐
-  │            LAYER 3: LLM MODEL                        │
-  │  - Built-in RLHF safety training                     │
-  │  - Constitutional AI (Anthropic)                     │
-  │  - GPT-4 safety fine-tuning                          │
-  └────────────────────────┬────────────────────────────┘
-                           │
-  ┌────────────────────────▼────────────────────────────┐
-  │            LAYER 4: OUTPUT VALIDATION                │
-  │  - Content moderation on responses                   │
-  │  - PII scan before displaying to users               │
-  │  - Format validation (expected JSON shape?)          │
-  │  - Fact-checking hooks (for high-stakes domains)     │
-  │  - Guardrails AI / NeMo Guardrails                   │
-  └────────────────────────┬────────────────────────────┘
-                           │
-  ┌────────────────────────▼────────────────────────────┐
-  │            LAYER 5: OBSERVABILITY                    │
-  │  - Log all requests and responses                    │
-  │  - Monitor for abuse patterns                        │
-  │  - Alert on safety classification triggers           │
-  │  - Human review queue for flagged outputs            │
-  └─────────────────────────────────────────────────────┘
-
-KEY PRINCIPLE: Never rely on a single layer.
-Each layer stops different attack vectors.
-```
+> Note: Never rely on a single layer. Each layer stops different attack vectors — defense in depth.
 
 ---
 
@@ -1070,37 +1030,20 @@ suite.print_report(results)
 
 ## Guardrails Architecture
 
-```
-GUARDRAILS ARCHITECTURE
-============================================================
-
-INPUT LAYER                     MODEL                  OUTPUT LAYER
-────────────                    ─────                  ────────────
-User submits                    LLM                    Response
-message                         generates              delivered to
-   │                            response               user
-   ▼                               ▲                      ▲
-┌──────────────────┐               │              ┌───────────────────┐
-│ INPUT GUARDS     │               │              │ OUTPUT GUARDS      │
-│                  │               │              │                    │
-│ 1. Length check  │               │              │ 1. Moderation API  │
-│ 2. Rate limiter  │               │              │ 2. PII scan        │
-│ 3. Moderation    │──── PASS ────>│              │ 3. Format check    │
-│ 4. PII detect    │               │              │ 4. Guardrails rule │
-│ 5. Injection     │               │              │ 5. Hallucination   │
-│    detector      │               │              │    detector        │
-│                  │               │              │                    │
-│ FAIL → BLOCK     │               │              │ FAIL → SUBSTITUTE  │
-└──────────────────┘               │              └───────────────────┘
-   │                               │                      │
-   │ BLOCKED                  ─────┘               FAILED │
-   ▼                                                       ▼
-┌──────────────────┐                          ┌────────────────────────┐
-│ Return safe      │                          │ Return fallback message│
-│ refusal message  │                          │ "I can't help with that"│
-│ "I can't help    │                          │ Log for human review   │
-│  with that"      │                          └────────────────────────┘
-└──────────────────┘
+```mermaid
+flowchart LR
+    User["User submits\nmessage"]
+    IG["INPUT GUARDS\n1. Length check\n2. Rate limiter\n3. Moderation\n4. PII detect\n5. Injection detector"]
+    LLM["LLM\ngenerates\nresponse"]
+    OG["OUTPUT GUARDS\n1. Moderation API\n2. PII scan\n3. Format check\n4. Guardrails rule\n5. Hallucination detector"]
+    Resp["Response\ndelivered to user"]
+    BlockMsg["Return safe refusal\n'I can't help with that'"]
+    FailMsg["Return fallback\n'I can't help with that'\nLog for human review"]
+    User --> IG
+    IG -->|PASS| LLM --> OG
+    IG -->|FAIL → BLOCK| BlockMsg
+    OG -->|PASS| Resp
+    OG -->|FAIL → SUBSTITUTE| FailMsg
 ```
 
 ```python
@@ -1519,6 +1462,95 @@ TOOLS AND LIBRARIES:
   - TransformerLens (Neel Nanda): standard tool for mechanistic interp
   - BauKit: activation patching toolkit
   - Anthropic's Interpretation papers: available at anthropic.com/research
+```
+
+---
+
+### Constitutional AI — Outer Alignment via Principles
+
+Constitutional AI (Anthropic, 2022) is a practical outer alignment technique that
+replaces purely human preference annotation with a written constitution of principles.
+It is the outer alignment counterpart to the inner alignment work of mechanistic interpretability.
+
+```
+THE ALIGNMENT HIERARCHY:
+  Outer alignment: does the training objective capture what we actually want?
+                   → Constitutional AI addresses this layer
+  Inner alignment: does the learned behavior match the training objective?
+                   → Mechanistic interpretability addresses this layer
+
+WHY RLHF ALONE IS INSUFFICIENT FOR OUTER ALIGNMENT:
+  Human raters are inconsistent, biased, gameable, and expensive.
+  They reward confident-sounding, verbose, agreeable responses —
+  not necessarily truthful, safe, or helpful ones (Goodhart's Law at the annotation layer).
+
+CONSTITUTIONAL AI PIPELINE (two phases):
+
+```mermaid
+flowchart TD
+    CONST["📜 Constitution\n'Do not assist with illegal activity'\n'Be honest and harmless'\n'Respect human autonomy'\n(~10-20 written principles)"]
+
+    subgraph P1["Phase 1 — SLAIC (Supervised Learning from AI Feedback)"]
+        direction TB
+        RT["Red-team prompt\n'How do I hotwire a car?'"]
+        HARM["Base model generates\nharmful response ❌"]
+        CRIT["Claude critiques response\nagainst constitution\n'Violates principle 7: illegal activity'"]
+        REVISE["Claude rewrites\n'I can't help. A locksmith can assist.'"]
+        SFT["Fine-tune on\n(prompt → revised response) pairs"]
+        SLCAI["SL-CAI model\n(safety-tuned, no human annotators needed ✅)"]
+
+        RT --> HARM --> CRIT --> REVISE --> SFT --> SLCAI
+    end
+
+    subgraph P2["Phase 2 — RLAIF (RL from AI Feedback)"]
+        direction TB
+        GEN["SL-CAI generates\nresponse pairs A and B"]
+        JUDGE["Feedback model judges\nwhich response better follows constitution\n'A is safer → prefer A'"]
+        PREF["AI-labeled preference pairs\n(prompt, chosen=A, rejected=B)\nno humans needed ✅"]
+        RM["Reward model\ntrained on AI preferences"]
+        PPO["PPO / DPO fine-tuning"]
+        CLAUDE["Final aligned model 🎯"]
+
+        GEN --> JUDGE --> PREF --> RM --> PPO --> CLAUDE
+    end
+
+    CONST --> P1
+    CONST --> P2
+    SLCAI --> GEN
+```
+
+  Phase 1 — Supervised Learning from AI Feedback (SLAIC):
+    a. Generate potentially harmful responses using red-team prompts
+    b. Ask Claude to CRITIQUE each response against a principle from the constitution
+       (e.g., "Does this response assist with illegal activity? Principle 3 says...")
+    c. Ask Claude to REVISE the response to comply with that principle
+    d. Fine-tune on the (prompt → revised response) pairs
+    → Produces a safety-fine-tuned SL-CAI model
+
+  Phase 2 — RLAIF (RL from AI Feedback):
+    a. Generate preference pairs from the SL-CAI model
+    b. Ask a feedback model to choose which response better follows the constitution
+       (no human raters needed for this step)
+    c. Train a reward model on these AI-labeled preferences
+    d. Fine-tune with PPO or DPO using the reward model
+    → Produces the final RLHF-CAI model (Claude)
+
+THE CONSTITUTION:
+  A written document of principles like:
+    "Prefer responses that are not harmful, dishonest, or unethical."
+    "Prefer responses that do not assist with CBRN weapons."
+    "Prefer responses that respect human autonomy and rights."
+  The constitution is what makes the AI feedback principled rather than
+  arbitrary — the same question answered by two annotators produces the
+  same answer because the principles are explicit and shared.
+
+ADVANTAGES OVER HUMAN-ONLY RLHF:
+  ✓ Scales cheaply: AI annotation is 100× cheaper than human annotation
+  ✓ Consistent: same principles applied to every preference pair
+  ✓ Auditable: the constitution is publicly readable and critiqueable
+  ✓ Reduces harm from annotator exposure to harmful content
+  ✗ Quality ceiling: AI feedback can encode the AI's existing biases
+  ✗ Principle completeness: hard to write a constitution covering all edge cases
 ```
 
 ---

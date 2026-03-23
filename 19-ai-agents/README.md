@@ -20,69 +20,39 @@ One round trip.                     Employee: researches, reads sources,
 One question, one answer.                     checks facts, drafts sections,
 No decision making required.                  revises, formats the report.
 
-  USER ──> LLM ──> ANSWER           USER ──> AGENT ──> [LOOP] ──> REPORT
-                                                │
-                                           ┌────▼────┐
-                                           │ Think   │
-                                           │ Plan    │
-                                           │ Search  │
-                                           │ Write   │
-                                           │ Revise  │
-                                           └─────────┘
+```mermaid
+flowchart LR
+    subgraph Simple["Simple LLM Call"]
+        U1[USER] --> L1[LLM] --> A1[ANSWER]
+    end
+    subgraph Agent["AI Agent"]
+        U2[USER] --> AG[AGENT] --> Loop["LOOP:\nThink → Plan\nSearch → Write\nRevise"] --> R[REPORT]
+    end
+```
 
-WHEN TO USE EACH:
-  Simple LLM call: Single-step tasks, Q&A, translation, summarization
-  Agent:           Multi-step tasks, research, planning, tool-using workflows
+When to use each: Simple LLM call for single-step tasks (Q&A, translation, summarisation). Agent for multi-step tasks (research, planning, tool-using workflows).
 ```
 
 ---
 
 ## 4 Core Agent Components
 
+```mermaid
+flowchart TD
+    User["User / Task"] --> Brain
+    subgraph Agent["AGENT"]
+        Brain["BRAIN (LLM)\ngpt-4o · claude · etc.\nReasons · Plans · Decides"]
+        Memory["MEMORY\nworking memory\nepisodic memory\nsemantic memory\nprocedural memory"]
+        Tools["TOOLS\nsearch_web()\nrun_code()\nread_file()\ncall_api()"]
+        Planning["PLANNING\nReAct · Plan-Execute\nTree-of-Thoughts"]
+        Brain <--> Memory
+        Brain <--> Tools
+        Brain --> Planning
+    end
+    Planning --> Answer["ANSWER / ACTION"]
 ```
-AGENT ARCHITECTURE
-============================================================
 
-              ┌─────────────────────────────────────────┐
-              │                 AGENT                    │
-              │                                          │
-              │  ┌──────────┐      ┌──────────────────┐ │
-              │  │          │      │                  │ │
-  USER ──────>│  │  BRAIN   │<────>│  MEMORY          │ │
-  TASK        │  │          │      │                  │ │
-              │  │ (LLM:    │      │ working memory   │ │
-              │  │  gpt-4o, │      │ episodic memory  │ │
-              │  │  claude, │      │ semantic memory  │ │
-              │  │  etc.)   │      │ procedural memory│ │
-              │  │          │      └──────────────────┘ │
-              │  │  Reasons │                            │
-              │  │  Plans   │      ┌──────────────────┐ │
-              │  │  Decides │      │                  │ │
-              │  │          │<────>│  TOOLS           │ │
-              │  └──────────┘      │                  │ │
-              │       │            │ search_web()     │ │
-              │       │            │ run_code()       │ │
-              │  ┌────▼────────┐   │ read_file()      │ │
-              │  │             │   │ call_api()       │ │
-              │  │  PLANNING   │   └──────────────────┘ │
-              │  │             │                         │
-              │  │ ReAct       │                         │
-              │  │ Plan-Exec   │                         │
-              │  │ Tree-of-    │                         │
-              │  │ Thoughts    │                         │
-              │  └─────────────┘                        │
-              └─────────────────────────────────────────┘
-                            │
-                      ┌─────▼──────┐
-                      │  ANSWER /  │
-                      │  ACTION    │
-                      └────────────┘
-
-1. BRAIN   — The LLM. Reads context, reasons, and decides what to do next.
-2. MEMORY  — Different stores for different types of information.
-3. TOOLS   — Functions the agent can call to affect the world.
-4. PLANNING — The strategy for deciding what steps to take.
-```
+> Note: 1. BRAIN = the LLM reasoning core. 2. MEMORY = different stores for short/long-term info. 3. TOOLS = functions that affect the world. 4. PLANNING = strategy for sequencing steps.
 
 ---
 
@@ -860,57 +830,17 @@ print(f"\n\nFINAL ANSWER:\n{result}")
 
 ## Multi-Agent Systems: Orchestrator-Worker Pattern
 
+```mermaid
+flowchart TD
+    User["USER"] --> Orch["ORCHESTRATOR\n• Receives task\n• Decomposes task\n• Assigns subtasks\n• Collects results\n• Synthesizes final answer"]
+    Orch -->|subtask| RA["RESEARCH AGENT\nsearch_web()\nread_url()"]
+    Orch -->|subtask| AA["ANALYSIS AGENT\ncalculate()\nrun_code()"]
+    Orch -->|subtask| WA["WRITING AGENT\nformat_text()\ncheck_grammar()"]
+    RA & AA & WA -->|results| Synth["ORCHESTRATOR\ncollects + synthesizes"]
+    Synth --> Ans["FINAL ANSWER to USER"]
 ```
-MULTI-AGENT ORCHESTRATOR-WORKER ARCHITECTURE
-============================================================
 
-                    ┌──────────────────────┐
-                    │    ORCHESTRATOR       │
-                    │                      │
-  USER ────────────>│  - Receives task     │
-                    │  - Decomposes task   │
-                    │  - Assigns subtasks  │
-                    │  - Collects results  │
-                    │  - Synthesizes final │
-                    │    answer            │
-                    └──────────┬───────────┘
-                               │ assigns subtasks
-              ┌────────────────┼───────────────────┐
-              │                │                   │
-              ▼                ▼                   ▼
-   ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
-   │ RESEARCH AGENT   │ │ ANALYSIS AGENT   │ │ WRITING AGENT    │
-   │                  │ │                  │ │                  │
-   │ - search_web()   │ │ - calculate()    │ │ - format_text()  │
-   │ - read_url()     │ │ - run_code()     │ │ - check_grammar()│
-   │                  │ │                  │ │                  │
-   └──────────────────┘ └──────────────────┘ └──────────────────┘
-              │                │                   │
-              └────────────────┴───────────────────┘
-                               │
-                    ┌──────────▼───────────┐
-                    │    ORCHESTRATOR       │
-                    │    collects results  │
-                    │    synthesizes       │
-                    └──────────────────────┘
-                               │
-                    ┌──────────▼───────────┐
-                    │    FINAL ANSWER      │
-                    │    to USER           │
-                    └──────────────────────┘
-
-BENEFITS:
-  - Specialization: each agent is optimized for its domain
-  - Parallelism: independent subtasks run simultaneously
-  - Modularity: easy to swap out or add agents
-  - Scalability: add more workers for throughput
-
-CHALLENGES:
-  - Orchestration complexity
-  - Result aggregation / conflict resolution
-  - Cost (multiple model calls)
-  - Debugging (harder to trace through multiple agents)
-```
+> Note: Benefits — specialization, parallelism, modularity, scalability. Challenges — orchestration complexity, result aggregation, cost, debugging.
 
 ```python
 # ============================================================

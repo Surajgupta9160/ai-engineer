@@ -813,19 +813,19 @@ Need optimised for Q&A retrieval?
 Need fastest possible search (sacrifice accuracy)?
   → Use text-embedding-3-small with reduced dimensions (256 dims)
 
-MODEL COMPARISON:
-┌──────────────────────────────────────┬──────┬──────────────┬─────────────────────┐
-│ Model                                │ Dims │ Cost         │ Best For            │
-├──────────────────────────────────────┼──────┼──────────────┼─────────────────────┤
-│ text-embedding-3-small               │ 1536 │ $0.02/1M     │ General production  │
-│ text-embedding-3-large               │ 3072 │ $0.13/1M     │ High accuracy       │
-│ text-embedding-ada-002 (legacy)      │ 1536 │ $0.10/1M     │ Legacy systems      │
-│ all-MiniLM-L6-v2 (local)            │  384 │ Free         │ Local, privacy      │
-│ all-mpnet-base-v2 (local)           │  768 │ Free         │ Better local        │
-│ nomic-embed-text (local via Ollama)  │  768 │ Free         │ Best free local     │
-│ embed-english-v3.0 (Cohere)         │ 1024 │ Pay per use  │ RAG + reranking     │
-└──────────────────────────────────────┴──────┴──────────────┴─────────────────────┘
 ```
+
+**Model Comparison:**
+
+| Model | Dims | Cost | Best For |
+|-------|------|------|----------|
+| text-embedding-3-small | 1536 | $0.02/1M | General production |
+| text-embedding-3-large | 3072 | $0.13/1M | High accuracy |
+| text-embedding-ada-002 (legacy) | 1536 | $0.10/1M | Legacy systems |
+| all-MiniLM-L6-v2 (local) | 384 | Free | Local, privacy |
+| all-mpnet-base-v2 (local) | 768 | Free | Better local quality |
+| nomic-embed-text (Ollama) | 768 | Free | Best free local |
+| embed-english-v3.0 (Cohere) | 1024 | Pay per use | RAG + reranking |
 
 ---
 
@@ -963,6 +963,82 @@ ASYMMETRIC TRAINING (query ≠ document):
     E5 models: prefix="query: " for queries, "passage: " for documents
     BGE models: prefix="Represent this sentence for searching relevant passages: "
   Allows same model architecture with asymmetric encoding behavior.
+```
+
+### Why Cross-Encoders Are Fundamentally Better — First Principles
+
+```mermaid
+flowchart TD
+    subgraph BI["🏃 Bi-Encoder  (fast, O(1) retrieval)"]
+        direction LR
+        Q["Query\n'capital of France'"] --> QE["Encoder\n(query tokens only)"] --> QV["query_vec\n[0.2, 0.8, ...]"]
+        D["Document\n'Paris is the capital'"] --> DE["Encoder\n(doc tokens only)"] --> DV["doc_vec\n[0.2, 0.7, ...]"]
+        QV & DV --> COS["cosine similarity\n→ 0.94"]
+    end
+
+    subgraph CE["🎯 Cross-Encoder  (accurate, O(K) reranking)"]
+        direction TB
+        INPUT["[CLS] capital of France [SEP] Paris is the capital [SEP]"] --> ATTN["Full bidirectional self-attention\nEvery query token ↔ every doc token\n'capital'(Q) strongly attends to 'capital'(D) ✅"] --> SCORE["[CLS] → 0.98 relevance score"]
+    end
+
+    note1["⚠️ Bi-encoder bottleneck: meaning is compressed to 1 vector\n BEFORE query and doc ever interact — co-occurrence signal lost"]
+    note2["✅ Cross-encoder: no compression — full text visible at scoring time"]
+```
+
+The quality gap between bi-encoders and cross-encoders is not just about "seeing both at once."
+It is a fundamental representational limitation.
+
+```
+THE REPRESENTATION BOTTLENECK (why bi-encoders have a ceiling):
+
+  Bi-encoder path:
+    Query  "What is the capital of France?"  → embed → [0.2, -0.1, 0.8, ...]  (1 vector)
+    Doc A  "Paris is the capital of France"  → embed → [0.2, -0.1, 0.7, ...]  (1 vector)
+    Doc B  "France won the 2018 World Cup"   → embed → [0.2, -0.1, 0.6, ...]  (1 vector)
+
+  The ENTIRE document meaning is compressed into one fixed-size vector.
+  Any information not preserved in that compression is LOST forever.
+  The model cannot "look back" at the document text when scoring.
+
+  Critical failure: two documents can have similar embeddings because they
+  share words/topics, even if one answers the question and one doesn't.
+  Example: both docs above contain "France" → embeddings are similar.
+  A bi-encoder cannot easily separate "is the capital" relevance from
+  "won the World Cup" relevance without the query present.
+
+THE CROSS-ENCODER ADVANTAGE — token-level interaction:
+
+  Cross-encoder input: [CLS] What is the capital of France? [SEP] Paris is the capital of France [SEP]
+
+  Every query token attends to every document token via full self-attention:
+    "capital" (query) ↔ "capital" (doc)    → exact match signal → high attention weight
+    "France"  (query) ↔ "France"  (doc)    → exact match signal
+    "capital" (query) ↔ "World Cup" (doc)  → no match → low attention weight
+
+  The model can detect EXACT PHRASE MATCHES, SYNONYM CHAINS, and
+  LOGICAL ENTAILMENT because every token has access to every other token.
+  There is no compression step — the full text is available at scoring time.
+
+WHEN THE GAP IS LARGEST:
+  1. Long documents with one relevant paragraph: bi-encoder averages over
+     irrelevant text; cross-encoder finds the relevant paragraph.
+  2. Negation: "What NOT to do in Python" — bi-encoder may match Python
+     tutorials; cross-encoder can process the "not" in context.
+  3. Entity disambiguation: "Mercury the planet" vs "Mercury the car brand"
+     — bi-encoder may conflate; cross-encoder resolves with context.
+
+WHY YOU STILL NEED BI-ENCODERS:
+  Pure cross-encoder search over 10M documents = 10M inference calls per query.
+  At 10ms per inference, that's 100,000 seconds per query — unusable.
+  Bi-encoder ANN reduces to ~1ms per query → cross-encoder on top-100 = 1 second.
+  The two-stage pipeline gets 95% of cross-encoder quality at 1000× lower latency.
+
+COLBERT — LATE INTERACTION (middle ground):
+  Instead of one vector per document, store one vector PER TOKEN.
+  Scoring: MaxSim(Q_tokens, D_tokens) = Σ_q max_d cosine(q_i, d_j)
+  Memory: 128 vectors per doc × dim × float (much larger than bi-encoder)
+  Quality: close to cross-encoder; latency: 10-50× better than cross-encoder
+  Use when: high-recall tasks with budget for larger index (legal, medical)
 ```
 
 ---

@@ -2,43 +2,27 @@
 
 ## What Multimodal Means and Why It Matters
 
+```mermaid
+flowchart LR
+    subgraph Uni["Unimodal AI (one input type)"]
+        T1["TEXT"] --> LLM1["LLM"] --> O1["TEXT"]
+    end
+    subgraph Multi["Multimodal AI (multiple input types)"]
+        T2["TEXT\n+ IMAGE\n+ AUDIO"] --> LLM2["LLM"] --> O2["TEXT\n(or IMAGE)"]
+    end
 ```
-MODALITIES IN AI
-============================================================
 
-  UNIMODAL AI:                    MULTIMODAL AI:
-  One input type                  Multiple input types
+**Why multimodal matters:** The real world is not just text. Doctors look at X-rays, call centers analyze tone, self-driving cars see road conditions.
 
-  ┌──────────┐                    ┌────────────────────────┐
-  │  TEXT    │──> LLM ──> TEXT    │  TEXT  + IMAGE + AUDIO │──> LLM ──> TEXT
-  └──────────┘                    └────────────────────────┘
-
-WHY MULTIMODAL MATTERS:
-  The real world is not just text.
-  A doctor looks at X-rays (images) and describes findings (text).
-  A call center analyzes tone (audio) and transcripts (text).
-  A self-driving car sees road conditions (video) and road signs (image+text).
-
-PRACTICAL IMPACT:
-  ┌─────────────────────────────────────────────────────────┐
-  │ Without multimodal:                                      │
-  │   "Describe what's wrong with my code" (screenshot)     │
-  │   → User must manually transcribe the error            │
-  │                                                          │
-  │ With multimodal:                                         │
-  │   [Paste screenshot of error]                            │
-  │   → AI sees the exact error message and line numbers     │
-  └─────────────────────────────────────────────────────────┘
-
-MODELS AND THEIR CAPABILITIES:
-  GPT-4o          → text + images in, text + images out
-  GPT-4o-mini     → text + images in, text out (cheaper)
-  Claude 3.x      → text + images in, text out
-  Gemini 1.5 Pro  → text + images + audio + video in, text out
-  DALL-E 3        → text in, image out
-  Whisper         → audio in, text out
-  TTS             → text in, audio out
-```
+| Model | Inputs | Outputs |
+|-------|--------|---------|
+| GPT-4o | text + images | text + images |
+| GPT-4o-mini | text + images | text |
+| Claude 3.x | text + images | text |
+| Gemini 1.5 Pro | text + images + audio + video | text |
+| DALL-E 3 | text | image |
+| Whisper | audio | text |
+| TTS | text | audio |
 
 ---
 
@@ -1707,6 +1691,25 @@ MULTIMODAL RAG:
 
 ### Architecture Approach 1: Token Projection (LLaVA-style)
 
+```mermaid
+flowchart TD
+    IMG["🖼️ Image\ne.g. photo of a cat\n224×224 pixels"]
+    PATCH["Split into 16×16 pixel patches\n→ 14×14 = 196 patches"]
+    CLIP["CLIP ViT-L/14\nVision Encoder\n(pretrained on image-text pairs)\nfrozen in Stage 1 training"]
+    VT["256 visual tokens\neach 1024-dim\n(vision embedding space)"]
+    MLP["MLP Projector\n2-layer linear\n(256, 1024) → (256, 4096)\n← the 'learned bridge'"]
+    VTLLM["256 visual tokens\nnow 4096-dim\n(same space as LLM word embeddings)"]
+    CONCAT["Concatenate\n[visual tokens (256)] + [text tokens 'Describe this image:']"]
+    LLM["LLaMA / Mistral\nFull bidirectional self-attention\nover ALL tokens together\n(image tokens and text tokens see each other)"]
+    OUT["'A tabby cat sitting on a windowsill.'"]
+
+    IMG --> PATCH --> CLIP --> VT --> MLP --> VTLLM --> CONCAT --> LLM --> OUT
+
+    style CLIP fill:#ddf,stroke:#66c
+    style MLP fill:#ffd,stroke:#cc6
+    style LLM fill:#dfd,stroke:#6c6
+```
+
 The most common approach in open-weight VLMs (LLaVA, LLaVA-1.5, Qwen-VL, InternVL).
 
 ```
@@ -1775,6 +1778,50 @@ TOKEN PROJECTION vs CROSS-ATTENTION:
   Token projection (LLaVA): simpler, stronger empirically in recent work
   Cross-attention (Flamingo): preserves LLM weights, handles multi-image
 ```
+
+### When to Use Each VLM Architecture
+
+```
+DECISION CRITERIA — Token Projection (LLaVA-style) vs Cross-Attention (Flamingo-style):
+
+PREFER TOKEN PROJECTION (LLaVA) WHEN:
+  ✓ Single image per prompt (most production use cases)
+  ✓ Maximum quality matters — recent benchmarks show LLaVA-style wins
+  ✓ You want to fine-tune the full LLM on image+text data
+  ✓ Simpler engineering: one model, no interleaved cross-attn layers
+  ✓ Dynamic tiling is needed (easier to implement with token concatenation)
+  Examples: GPT-4V (likely), LLaVA-1.6, Qwen-VL, InternVL2
+
+PREFER CROSS-ATTENTION (Flamingo) WHEN:
+  ✓ Multiple images interleaved with text (e.g., multi-image reasoning,
+    video frames, or document pages)
+  ✓ LLM weights must be frozen (e.g., proprietary base LLM that cannot
+    be fine-tuned due to licensing or cost)
+  ✓ Modular deployment: swap vision encoder or LLM independently
+  ✓ Interleaved image-text datasets (Flamingo trained on web interleaved data)
+  Examples: Flamingo, IDEFICS, MM1
+
+PRACTICAL TOKEN BUDGET COMPARISON:
+  Scenario                 | LLaVA tokens | Flamingo tokens
+  ─────────────────────────┼──────────────┼────────────────
+  Single 224×224 image     | 256          | 64 (Perceiver resamples)
+  Single image + tiling 4× | ~1024        | ~256 (4 tiles, each resampled)
+  5 images (video frames)  | 1280         | 320
+  32 video frames          | 8192         | 2048
+
+  Flamingo's Perceiver resampler compresses to fixed 64 tokens per image
+  regardless of resolution — more memory-efficient for multi-image tasks.
+  Trade-off: the compression loses fine-grained spatial detail.
+
+```
+
+**Quality vs Efficiency Tradeoff:**
+
+| Architecture | Quality | Token budget | Multi-image support |
+|-------------|---------|--------------|---------------------|
+| LLaVA (projection) | Best | High | Poor (tokens explode) |
+| Flamingo (cross-attn) | Good | Low | Excellent |
+| LLaVA + tiling | Best + OCR | Very high | Poor |
 
 ---
 

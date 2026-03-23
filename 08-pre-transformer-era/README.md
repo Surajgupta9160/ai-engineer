@@ -452,30 +452,21 @@ Where sₖ are task-specific softmax-normalized weights, γ is a scalar.
 
 ### Progression of Ideas
 
-```
-One-hot vectors (1990s)
-    ↓
-Word2Vec (2013): static, context-free word embeddings
-    ↓
-RNN Language Models (2010s): sequential, context-dependent processing
-    ↓
-Seq2Seq (2014): encoder-decoder for variable-length sequences
-    ↓
-Attention over Encoder (2014): dynamic focus on input positions
-    ↓
-Self-Attention (2015, as component): attend within one sequence
-    ↓
-Transformer (2017): ONLY attention, no recurrence
-    ↓
-BERT (2018): bidirectional transformer, masked language modeling
-    ↓
-GPT (2018): autoregressive transformer, causal language modeling
-    ↓
-GPT-3 (2020): scaled to 175B params → emergent capabilities
-    ↓
-RLHF + InstructGPT (2022): aligned LLMs
-    ↓
-ChatGPT, GPT-4, Claude, Gemini...
+```mermaid
+flowchart TD
+    A["One-hot vectors (1990s)\nHigh-dimensional, no similarity"]
+    B["Word2Vec (2013)\nStatic, context-free word embeddings"]
+    C["RNN Language Models (2010s)\nSequential, context-dependent processing"]
+    D["Seq2Seq (2014)\nEncoder-decoder for variable-length sequences"]
+    E["Attention over Encoder (2014, Bahdanau)\nDynamic focus on input positions"]
+    F["Self-Attention (2015)\nAttend within one sequence"]
+    G["Transformer (2017)\nOnly attention, no recurrence"]
+    H1["BERT (2018)\nBidirectional, masked language modeling"]
+    H2["GPT (2018)\nAutoregressive, causal language modeling"]
+    I["GPT-3 (2020)\n175B params → emergent capabilities"]
+    J["RLHF + InstructGPT (2022)\nAligned LLMs"]
+    K["ChatGPT · GPT-4 · Claude · Gemini…"]
+    A --> B --> C --> D --> E --> F --> G --> H1 & H2 --> I --> J --> K
 ```
 
 ### What Each Step Contributed
